@@ -4,5 +4,7 @@
   "session_ttl": "12h",
   "secure_cookies": false,
   "priority_min": 1,
-  "priority_max": 5
+  "priority_max": 5,
+  "timezone": "Europe/Berlin",
+  "reminder_days": 3
 }

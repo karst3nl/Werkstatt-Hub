@@ -22,6 +22,7 @@ import (
 	"werkstatt-hub/internal/core"
 	"werkstatt-hub/internal/ideas"
 	"werkstatt-hub/internal/storage"
+	"werkstatt-hub/internal/tasks"
 )
 
 //go:embed templates/*.html assets/*
@@ -56,6 +57,20 @@ type app struct {
 }
 
 type page struct {
+	TaskMode              bool
+	Task                  tasks.Task
+	TaskColumns           []taskColumn
+	TaskFilter            tasks.Filter
+	Mine                  bool
+	MyTasks               bool
+	Assignees             []core.User
+	AssigneeMissing       bool
+	TaskStatuses          []taskStatusOption
+	CanApprove            bool
+	TaskReminder          taskCard
+	Reminders             []taskCard
+	DashboardTasks        []taskCard
+	WorkshopTimezone      string
 	Title                 string
 	Current               *core.User
 	CSRF                  string
@@ -88,6 +103,7 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 		options.SessionTTL = 12 * time.Hour
 	}
 	t, err := template.New("app").Funcs(template.FuncMap{
+		"taskDate":         taskDate,
 		"date":             func(t time.Time) string { return t.UTC().Format("02.01.2006 15:04:05 UTC") },
 		"role":             roleLabel,
 		"status":           statusLabel,
@@ -130,6 +146,15 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("POST /ideas/{id}/edit", a.auth(a.updateIdea))
 	mux.HandleFunc("POST /ideas/{id}/comments", a.auth(a.ideaComment))
 	mux.HandleFunc("POST /ideas/{id}/priority", a.auth(a.setPriority))
+	mux.HandleFunc("GET /tasks", a.browse(a.taskBoard))
+	mux.HandleFunc("GET /tasks/new", a.auth(a.newTask))
+	mux.HandleFunc("POST /tasks/new", a.auth(a.createTask))
+	mux.HandleFunc("GET /tasks/{id}", a.browse(a.task))
+	mux.HandleFunc("GET /tasks/{id}/edit", a.auth(a.editTask))
+	mux.HandleFunc("POST /tasks/{id}/edit", a.auth(a.updateTask))
+	mux.HandleFunc("POST /tasks/{id}/status", a.auth(a.taskStatus))
+	mux.HandleFunc("POST /tasks/{id}/comments", a.auth(a.taskComment))
+	mux.HandleFunc("POST /tasks/{id}/priority", a.auth(a.setPriority))
 	mux.HandleFunc("GET /audit", a.auth(a.audit))
 	mux.HandleFunc("GET /admin/users", a.auth(a.users))
 	mux.HandleFunc("POST /admin/users", a.auth(a.createUser))
@@ -152,6 +177,12 @@ func roleLabel(role core.Role) string {
 
 func statusLabel(status string) string {
 	switch status {
+	case "offen":
+		return "Offen"
+	case "in_arbeit":
+		return "In Arbeit"
+	case "zur_kontrolle":
+		return "Zur Kontrolle"
 	case "neu":
 		return "Neu"
 	case "in_pruefung":
@@ -183,6 +214,16 @@ func auditAction(action string) string {
 		return "Idee geändert"
 	case "idea.priority":
 		return "Ideenpriorität geändert"
+	case "task.create":
+		return "Aufgabe erstellt"
+	case "task.update":
+		return "Aufgabe geändert"
+	case "task.status":
+		return "Aufgabenstatus geändert"
+	case "task.approve":
+		return "Aufgabe abgenommen"
+	case "task.priority":
+		return "Aufgabenpriorität geändert"
 	case "comment.create":
 		return "Kommentar erstellt"
 	case "user.create":
@@ -202,6 +243,8 @@ func auditEntity(entity string) string {
 		return "Eintrag"
 	case "idea":
 		return "Idee"
+	case "task":
+		return "Aufgabe"
 	case "user":
 		return "Nutzer"
 	case "comment":
@@ -301,9 +344,13 @@ func (a *app) render(w http.ResponseWriter, r *http.Request, name string, p page
 		p.Current = nil
 	}
 	p.Scale = a.store.PriorityScale()
+	p.WorkshopTimezone = a.store.TaskSettings().Location.String()
 	p.BasePath = "/entries"
 	if p.IdeaMode {
 		p.BasePath = "/ideas"
+	}
+	if p.TaskMode {
+		p.BasePath = "/tasks"
 	}
 	if p.Current != nil {
 		p.CanEmployeePriority = core.CanSetEmployeePriority(*p.Current, p.Entry)
@@ -499,7 +546,29 @@ func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
 	if len(latestIdeas) > 3 {
 		latestIdeas = latestIdeas[:3]
 	}
-	a.render(w, r, "home", page{Title: "Dashboard", Current: &u, Entries: entries, Ideas: latestIdeas})
+	filter := tasks.Filter{}
+	myTasks := u.Active && !core.CanManage(u)
+	if myTasks {
+		filter.AssigneeID = u.ID
+	}
+	taskList, err := a.store.PublicTasks(r.Context(), filter)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	reminders := make([]taskCard, 0)
+	previews := make([]taskCard, 0)
+	now := time.Now()
+	for _, task := range taskList {
+		card := a.taskCard(task, now)
+		if card.ReminderKind != "" {
+			reminders = append(reminders, card)
+		}
+		if task.Status != "erledigt" && len(previews) < 4 {
+			previews = append(previews, card)
+		}
+	}
+	a.render(w, r, "home", page{Title: "Dashboard", Current: &u, Entries: entries, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews})
 }
 
 func (a *app) newEntry(w http.ResponseWriter, r *http.Request, u core.User) {
@@ -548,6 +617,13 @@ func (a *app) entry(w http.ResponseWriter, r *http.Request, u core.User) {
 			a.fail(w, ideaErr)
 			return
 		}
+		if _, taskErr := a.store.PublicTask(r.Context(), id); taskErr == nil {
+			http.Redirect(w, r, fmt.Sprintf("/tasks/%d", id), http.StatusSeeOther)
+			return
+		} else if !errors.Is(taskErr, core.ErrNotFound) {
+			a.fail(w, taskErr)
+			return
+		}
 	}
 	if err != nil {
 		a.fail(w, err)
@@ -574,6 +650,10 @@ func (a *app) editEntry(w http.ResponseWriter, r *http.Request, u core.User) {
 	}
 	if e.Module == "idee" {
 		http.Redirect(w, r, fmt.Sprintf("/ideas/%d/edit", id), http.StatusSeeOther)
+		return
+	}
+	if e.Module == "aufgabe" {
+		http.Redirect(w, r, fmt.Sprintf("/tasks/%d/edit", id), http.StatusSeeOther)
 		return
 	}
 	if !core.CanEditEntry(u, e) {

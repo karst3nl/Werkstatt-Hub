@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"werkstatt-hub/internal/core"
+	"werkstatt-hub/internal/tasks"
 )
 
 type Config struct {
@@ -20,10 +21,12 @@ type Config struct {
 	SecureCookies bool   `json:"secure_cookies"`
 	PriorityMin   int    `json:"priority_min"`
 	PriorityMax   int    `json:"priority_max"`
+	Timezone      string `json:"timezone"`
+	ReminderDays  int    `json:"reminder_days"`
 }
 
 func Default() Config {
-	return Config{Listen: "127.0.0.1:8080", Database: "../werkstatt-hub-data/werkstatt-hub.db", SessionTTL: "12h", PriorityMin: 1, PriorityMax: 5}
+	return Config{Listen: "127.0.0.1:8080", Database: "../werkstatt-hub-data/werkstatt-hub.db", SessionTTL: "12h", PriorityMin: 1, PriorityMax: 5, Timezone: "Europe/Berlin", ReminderDays: 3}
 }
 
 // Load uses defaults when path is empty; an explicitly named file must exist.
@@ -56,6 +59,13 @@ func Load(path string) (Config, error) {
 	}
 	if !(core.PriorityScale{Min: c.PriorityMin, Max: c.PriorityMax}).Valid() {
 		return c, fmt.Errorf("priority_min und priority_max müssen 1 <= Minimum < Maximum <= 100 erfüllen")
+	}
+	location, err := time.LoadLocation(c.Timezone)
+	if err != nil || c.Timezone == "" || strings.TrimSpace(c.Timezone) != c.Timezone {
+		return c, fmt.Errorf("timezone muss eine gültige Zeitzone wie Europe/Berlin sein")
+	}
+	if !(tasks.Settings{Location: location, SoonDays: c.ReminderDays}).Valid() {
+		return c, fmt.Errorf("reminder_days muss zwischen 1 und 30 liegen")
 	}
 	return c, nil
 }

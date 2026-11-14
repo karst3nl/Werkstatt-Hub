@@ -10,7 +10,7 @@ func TestConfiguration(t *testing.T) {
 	if _, err := Load(""); err != nil {
 		t.Fatal(err)
 	}
-	for _, body := range []string{`{"session_ttl":"0s"}`, `{"database":":memory:"}`, `{"listen":"8080"}`, `{"unknown":true}`, `{} {}`, `{"session_ttl":"169h"}`, `{"priority_min":0}`, `{"priority_max":1}`, `{"priority_max":101}`, `{"priority_min":5,"priority_max":4}`} {
+	for _, body := range []string{`{"session_ttl":"0s"}`, `{"database":":memory:"}`, `{"listen":"8080"}`, `{"unknown":true}`, `{} {}`, `{"session_ttl":"169h"}`, `{"priority_min":0}`, `{"priority_max":1}`, `{"priority_max":101}`, `{"priority_min":5,"priority_max":4}`, `{"timezone":""}`, `{"timezone":"invalid/zone"}`, `{"timezone":" Europe/Berlin"}`, `{"reminder_days":0}`, `{"reminder_days":31}`} {
 		t.Run(body, func(t *testing.T) {
 			p := filepath.Join(t.TempDir(), "config.json")
 			if err := os.WriteFile(p, []byte(body), 0600); err != nil {
@@ -45,6 +45,30 @@ func TestPriorityScaleBackwardCompatibleAndConfigurable(t *testing.T) {
 			}
 			if cfg.PriorityMin != tc.min || cfg.PriorityMax != tc.max {
 				t.Fatalf("priority scale = %d..%d, want %d..%d", cfg.PriorityMin, cfg.PriorityMax, tc.min, tc.max)
+			}
+		})
+	}
+}
+
+func TestTaskSettingsBackwardCompatibleAndConfigurable(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, zone string
+		days             int
+	}{
+		{"existing configuration", `{"priority_min":1,"priority_max":5}`, "Europe/Berlin", 3},
+		{"custom reminders", `{"timezone":"UTC","reminder_days":7}`, "UTC", 7},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			if err := os.WriteFile(path, []byte(tc.body), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := Load(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.Timezone != tc.zone || cfg.ReminderDays != tc.days {
+				t.Fatalf("task settings = %s/%d, want %s/%d", cfg.Timezone, cfg.ReminderDays, tc.zone, tc.days)
 			}
 		})
 	}

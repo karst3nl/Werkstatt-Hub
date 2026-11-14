@@ -19,6 +19,7 @@ import (
 	"werkstatt-hub/internal/config"
 	"werkstatt-hub/internal/core"
 	"werkstatt-hub/internal/storage"
+	"werkstatt-hub/internal/tasks"
 	"werkstatt-hub/internal/web"
 )
 
@@ -63,7 +64,14 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if err != nil {
 		return err
 	}
-	store, err := storage.OpenWithOptions(cfg.Database, storage.Options{PriorityScale: core.PriorityScale{Min: cfg.PriorityMin, Max: cfg.PriorityMax}})
+	location, err := time.LoadLocation(cfg.Timezone)
+	if err != nil {
+		return fmt.Errorf("Werkstatt-Zeitzone laden: %w", err)
+	}
+	store, err := storage.OpenWithOptions(cfg.Database, storage.Options{
+		PriorityScale: core.PriorityScale{Min: cfg.PriorityMin, Max: cfg.PriorityMax},
+		TaskSettings:  tasks.Settings{Location: location, SoonDays: cfg.ReminderDays},
+	})
 	if err != nil {
 		return fmt.Errorf("Datenbank öffnen: %w", err)
 	}

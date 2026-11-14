@@ -185,13 +185,15 @@ func (a *app) setPriority(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.fail(w, err)
 		return
 	}
-	ideaRoute := strings.HasPrefix(r.URL.Path, "/ideas/")
-	if ideaRoute && entry.Module != "idee" {
-		a.fail(w, core.ErrNotFound)
-		return
+	base, module := "/entries", "basis"
+	if strings.HasPrefix(r.URL.Path, "/ideas/") {
+		base, module = "/ideas", "idee"
 	}
-	// Reject a mismatched mutation route instead of redirecting a POST.
-	if !ideaRoute && entry.Module != "basis" {
+	if strings.HasPrefix(r.URL.Path, "/tasks/") {
+		base, module = "/tasks", "aufgabe"
+	}
+	// A mutation must use the entry's module-specific route.
+	if entry.Module != module {
 		a.fail(w, core.ErrValidation)
 		return
 	}
@@ -213,10 +215,6 @@ func (a *app) setPriority(w http.ResponseWriter, r *http.Request, u core.User) {
 	if err != nil {
 		a.fail(w, err)
 		return
-	}
-	base := "/entries"
-	if ideaRoute {
-		base = "/ideas"
 	}
 	http.Redirect(w, r, fmt.Sprintf("%s/%d", base, id), http.StatusSeeOther)
 }
