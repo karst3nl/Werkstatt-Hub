@@ -93,3 +93,5 @@ internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
 Tests verwenden ausschließlich temporäre Verzeichnisse. Datenbanken, Uploads, Sicherungen, Logs, lokale Konfiguration und Geheimnisse dürfen nicht versioniert werden; `.gitignore` schützt die üblichen Pfade und Dateiformate. Beispielkonfiguration enthält ausschließlich lokale Standardwerte. Änderungen ausschließlich auf Branch `alpha`, in kleinen thematischen Commits; niemals direkt auf `main` pushen.
 
 Die Fachmodule bleiben getrennte spätere Pakete und nutzen die gemeinsame Benutzer-, Signatur-, Kommentar- und Audit-Basis. Ideenboard/Prioritäten, Azubi-Aufgaben, Werkzeuge, Materialien, Kummerkasten, erweiterte Administration/Uploads und Pi-Betrieb folgen gemäß `AGENTS.md`.
+
+Validiert für Version 0.1.0: `go test -race ./...`, `go vet ./...`, ein vollständiger Chromium-Ablauf (Admin-Einrichtung, Nutzer, Einträge, Kommentare, Status, Audit, Deaktivierung) bei 1360 und 390 Pixeln sowie ein Build für Linux/ARM64 ohne CGO. Der Browserablauf lädt ausschließlich lokale Ressourcen. Getestete Toolchain: Go 1.27.4; der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.

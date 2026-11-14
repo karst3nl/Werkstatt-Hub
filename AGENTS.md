@@ -111,3 +111,10 @@ Jedes Modul ist ein eigenes Paket mit eigenem Datenmodell, nutzt aber gemeinsam 
 
 ## 13. Bewusst noch nicht in Version 1
 Passwörter oder PIN, Benachrichtigungen (Mail/Push), Foto-Anzeige in der Oberfläche, Anonymität, Zugriff von außen, Ausleihe-System für Werkzeuge.
+
+## 14. Umsetzungsstand
+- **Meilenstein 1 umgesetzt:** Go/SQLite-Projektgerüst, lokale Konfiguration, deutsche Namensauswahl mit separatem Admin-Zugang, Rollen, Basiseinträge und Kommentare mit unveränderlicher Signatur, atomarer Audit-Verlauf und versionierte Migrationen.
+- Die grundlegende Benutzerverwaltung dient bereits dem Einrichten und Prüfen der Rollen. Stammdaten und Foto-Grundlagen bleiben Meilenstein 7.
+- Rechtematrix, Betriebsannahmen, Startanleitung und Grenzen sind in `README.md` dokumentiert. Keine Beispieldaten werden mitgeliefert.
+- Rechte-, Audit-, Migrations- und HTTP-Tests vorhanden. Go-Race-Tests, `go vet`, Browserablauf auf Desktop/Mobil und ARM64-Build geprüft; noch kein Lauf auf echter Pi-Hardware.
+- **Nächster fachlicher Schritt: Meilenstein 2**, Prioritätssystem und Ideenboard. Die zwei Prioritätsfelder sind bisher nur vorbereitet.
