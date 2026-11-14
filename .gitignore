@@ -1,0 +1,33 @@
+# Local runtime data, databases, exports and credentials
+/var/
+/data/
+/uploads/
+/backups/
+/logs/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.sql.gz
+*.bak
+*.backup
+*.log
+*.pem
+*.key
+.env
+.env.*
+/config.*
+!/config.example.*
+
+# Build output, coverage, editors and scratch work
+/bin/
+/dist/
+/work/
+/coverage*
+*.test
+*.out
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,6 @@
+{
+  "listen": "127.0.0.1:8080",
+  "database": "../werkstatt-hub-data/werkstatt-hub.db",
+  "session_ttl": "12h",
+  "secure_cookies": false
+}
