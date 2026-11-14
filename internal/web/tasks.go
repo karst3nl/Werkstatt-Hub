@@ -93,7 +93,7 @@ func (a *app) taskBoard(w http.ResponseWriter, r *http.Request, u core.User) {
 	}
 	a.render(w, r, "tasks", page{Title: title, Current: &u, TaskColumns: columns, TaskFilter: filter, Assignees: assignees, Mine: mine})
 }
-func (a *app) taskAuthors(r *http.Request) ([]core.User, error) {
+func (a *app) managerAuthors(r *http.Request) ([]core.User, error) {
 	all, err := a.store.ActiveAuthors(r.Context())
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (a *app) newTask(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.fail(w, err)
 		return
 	}
-	authors, err := a.taskAuthors(r)
+	authors, err := a.managerAuthors(r)
 	if err != nil {
 		a.fail(w, err)
 		return

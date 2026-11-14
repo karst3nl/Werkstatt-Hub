@@ -23,6 +23,7 @@ import (
 	"werkstatt-hub/internal/ideas"
 	"werkstatt-hub/internal/storage"
 	"werkstatt-hub/internal/tasks"
+	"werkstatt-hub/internal/tooling"
 )
 
 //go:embed templates/*.html assets/*
@@ -57,6 +58,24 @@ type app struct {
 }
 
 type page struct {
+	ReportMode           bool
+	PurchaseMode         bool
+	Tool                 tooling.Tool
+	Tools                []tooling.Tool
+	ToolFilter           tooling.ToolFilter
+	Report               tooling.Report
+	Reports              []tooling.Report
+	ReportFilter         tooling.ReportFilter
+	Purchase             tooling.Purchase
+	Purchases            []tooling.Purchase
+	PurchaseFilter       tooling.PurchaseFilter
+	PriorityFilterPrefix string
+	SortFilter           string
+	Divergent            bool
+	DashboardTools       []tooling.Tool
+	DashboardPurchases   []tooling.Purchase
+	ToolAttentionCount   int
+
 	TaskMode              bool
 	Task                  tasks.Task
 	TaskColumns           []taskColumn
@@ -104,6 +123,7 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 	}
 	t, err := template.New("app").Funcs(template.FuncMap{
 		"taskDate":         taskDate,
+		"condition":        conditionLabel,
 		"date":             func(t time.Time) string { return t.UTC().Format("02.01.2006 15:04:05 UTC") },
 		"role":             roleLabel,
 		"status":           statusLabel,
@@ -155,6 +175,27 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("POST /tasks/{id}/status", a.auth(a.taskStatus))
 	mux.HandleFunc("POST /tasks/{id}/comments", a.auth(a.taskComment))
 	mux.HandleFunc("POST /tasks/{id}/priority", a.auth(a.setPriority))
+	mux.HandleFunc("GET /tools", a.browse(a.toolBoard))
+	mux.HandleFunc("GET /tools/new", a.auth(a.newTool))
+	mux.HandleFunc("POST /tools/new", a.auth(a.createTool))
+	mux.HandleFunc("GET /tools/{id}", a.browse(a.tool))
+	mux.HandleFunc("GET /tools/{id}/edit", a.auth(a.editTool))
+	mux.HandleFunc("POST /tools/{id}/edit", a.auth(a.updateTool))
+	mux.HandleFunc("GET /tools/{id}/reports/new", a.browse(a.newToolReport))
+	mux.HandleFunc("POST /tools/{id}/reports/new", a.browse(a.createToolReport))
+	mux.HandleFunc("GET /tool-reports/{id}", a.browse(a.toolReport))
+	mux.HandleFunc("GET /tool-reports/{id}/edit", a.auth(a.editToolReport))
+	mux.HandleFunc("POST /tool-reports/{id}/edit", a.auth(a.updateToolReport))
+	mux.HandleFunc("POST /tool-reports/{id}/comments", a.auth(a.toolingComment))
+	mux.HandleFunc("POST /tool-reports/{id}/priority", a.auth(a.setPriority))
+	mux.HandleFunc("GET /purchases", a.browse(a.purchaseBoard))
+	mux.HandleFunc("GET /purchases/new", a.browse(a.newPurchase))
+	mux.HandleFunc("POST /purchases/new", a.browse(a.createPurchase))
+	mux.HandleFunc("GET /purchases/{id}", a.browse(a.purchase))
+	mux.HandleFunc("GET /purchases/{id}/edit", a.auth(a.editPurchase))
+	mux.HandleFunc("POST /purchases/{id}/edit", a.auth(a.updatePurchase))
+	mux.HandleFunc("POST /purchases/{id}/comments", a.auth(a.toolingComment))
+	mux.HandleFunc("POST /purchases/{id}/priority", a.auth(a.setPriority))
 	mux.HandleFunc("GET /audit", a.auth(a.audit))
 	mux.HandleFunc("GET /admin/users", a.auth(a.users))
 	mux.HandleFunc("POST /admin/users", a.auth(a.createUser))
@@ -183,6 +224,14 @@ func statusLabel(status string) string {
 		return "In Arbeit"
 	case "zur_kontrolle":
 		return "Zur Kontrolle"
+	case "gewuenscht":
+		return "Gewünscht"
+	case "genehmigt":
+		return "Genehmigt"
+	case "bestellt":
+		return "Bestellt"
+	case "geliefert":
+		return "Geliefert"
 	case "neu":
 		return "Neu"
 	case "in_pruefung":
@@ -202,6 +251,22 @@ func statusLabel(status string) string {
 
 func auditAction(action string) string {
 	switch action {
+	case "tool.create":
+		return "Werkzeug angelegt"
+	case "tool.update":
+		return "Werkzeug geändert"
+	case "tool_report.create":
+		return "Werkzeugmeldung erfasst"
+	case "tool_report.update":
+		return "Werkzeugmeldung geändert"
+	case "tool_report.priority":
+		return "Meldungspriorität geändert"
+	case "purchase.create":
+		return "Anschaffungswunsch erfasst"
+	case "purchase.update":
+		return "Anschaffungswunsch geändert"
+	case "purchase.priority":
+		return "Anschaffungspriorität geändert"
 	case "entry.create":
 		return "Eintrag erstellt"
 	case "entry.update":
@@ -239,6 +304,12 @@ func auditAction(action string) string {
 
 func auditEntity(entity string) string {
 	switch entity {
+	case "tool":
+		return "Werkzeug"
+	case "tool_report":
+		return "Werkzeugmeldung"
+	case "purchase":
+		return "Anschaffungswunsch"
 	case "entry":
 		return "Eintrag"
 	case "idea":
@@ -351,6 +422,12 @@ func (a *app) render(w http.ResponseWriter, r *http.Request, name string, p page
 	}
 	if p.TaskMode {
 		p.BasePath = "/tasks"
+	}
+	if p.ReportMode {
+		p.BasePath = "/tool-reports"
+	}
+	if p.PurchaseMode {
+		p.BasePath = "/purchases"
 	}
 	if p.Current != nil {
 		p.CanEmployeePriority = core.CanSetEmployeePriority(*p.Current, p.Entry)
@@ -568,7 +645,33 @@ func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
 			previews = append(previews, card)
 		}
 	}
-	a.render(w, r, "home", page{Title: "Dashboard", Current: &u, Entries: entries, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews})
+	toolList, err := a.store.Tools(r.Context(), tooling.ToolFilter{})
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	attention := make([]tooling.Tool, 0)
+	for _, tool := range toolList {
+		if tool.Condition == "defekt" || tool.Condition == "verschleisst" || tool.OpenReports > 0 {
+			attention = append(attention, tool)
+		}
+	}
+	attentionCount := len(attention)
+	if len(attention) > 4 {
+		attention = attention[:4]
+	}
+	purchaseList, err := a.store.Purchases(r.Context(), tooling.PurchaseFilter{Sort: "vorgesetzter"})
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	purchasePreview := make([]tooling.Purchase, 0)
+	for _, purchase := range purchaseList {
+		if purchase.Status != "geliefert" && len(purchasePreview) < 3 {
+			purchasePreview = append(purchasePreview, purchase)
+		}
+	}
+	a.render(w, r, "home", page{Title: "Dashboard", Current: &u, Entries: entries, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews, DashboardTools: attention, ToolAttentionCount: attentionCount, DashboardPurchases: purchasePreview})
 }
 
 func (a *app) newEntry(w http.ResponseWriter, r *http.Request, u core.User) {
@@ -624,6 +727,20 @@ func (a *app) entry(w http.ResponseWriter, r *http.Request, u core.User) {
 			a.fail(w, taskErr)
 			return
 		}
+		if _, reportErr := a.store.ToolReport(r.Context(), id); reportErr == nil {
+			http.Redirect(w, r, fmt.Sprintf("/tool-reports/%d", id), http.StatusSeeOther)
+			return
+		} else if !errors.Is(reportErr, core.ErrNotFound) {
+			a.fail(w, reportErr)
+			return
+		}
+		if _, purchaseErr := a.store.Purchase(r.Context(), id); purchaseErr == nil {
+			http.Redirect(w, r, fmt.Sprintf("/purchases/%d", id), http.StatusSeeOther)
+			return
+		} else if !errors.Is(purchaseErr, core.ErrNotFound) {
+			a.fail(w, purchaseErr)
+			return
+		}
 	}
 	if err != nil {
 		a.fail(w, err)
@@ -654,6 +771,14 @@ func (a *app) editEntry(w http.ResponseWriter, r *http.Request, u core.User) {
 	}
 	if e.Module == "aufgabe" {
 		http.Redirect(w, r, fmt.Sprintf("/tasks/%d/edit", id), http.StatusSeeOther)
+		return
+	}
+	if e.Module == "werkzeugmeldung" {
+		http.Redirect(w, r, fmt.Sprintf("/tool-reports/%d/edit", id), http.StatusSeeOther)
+		return
+	}
+	if e.Module == "anschaffung" {
+		http.Redirect(w, r, fmt.Sprintf("/purchases/%d/edit", id), http.StatusSeeOther)
 		return
 	}
 	if !core.CanEditEntry(u, e) {
