@@ -27,6 +27,7 @@ type Signature struct {
 	At   time.Time `json:"at"`
 }
 type Entry struct {
+	Module             string    `json:"module"`
 	ID                 int64     `json:"id"`
 	AuthorID           int64     `json:"author_id"`
 	Title              string    `json:"title"`

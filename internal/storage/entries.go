@@ -9,7 +9,7 @@ import (
 	"werkstatt-hub/internal/core"
 )
 
-const entryColumns = `id,author_id,title,body,status,signature_name,signature_at,created_at,updated_at,version,employee_priority,supervisor_priority`
+const entryColumns = `id,module,author_id,title,body,status,signature_name,signature_at,created_at,updated_at,version,employee_priority,supervisor_priority`
 
 type scanner interface{ Scan(...any) error }
 
@@ -17,7 +17,7 @@ func scanEntry(row scanner) (core.Entry, error) {
 	var e core.Entry
 	var sign, created, updated string
 	var employee, supervisor sql.NullInt64
-	err := row.Scan(&e.ID, &e.AuthorID, &e.Title, &e.Body, &e.Status, &e.Signature.Name, &sign, &created, &updated, &e.Version, &employee, &supervisor)
+	err := row.Scan(&e.ID, &e.Module, &e.AuthorID, &e.Title, &e.Body, &e.Status, &e.Signature.Name, &sign, &created, &updated, &e.Version, &employee, &supervisor)
 	if errors.Is(err, sql.ErrNoRows) {
 		return e, core.ErrNotFound
 	}
@@ -52,7 +52,7 @@ func (s *Store) Entries(ctx context.Context, actorID int64) ([]core.Entry, error
 		if _, err := actorFrom(ctx, tx, actorID); err != nil {
 			return err
 		}
-		rows, err := tx.QueryContext(ctx, "SELECT "+entryColumns+" FROM entries ORDER BY id DESC")
+		rows, err := tx.QueryContext(ctx, "SELECT "+entryColumns+" FROM entries WHERE module='basis' ORDER BY id DESC")
 		if err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func (s *Store) CreateEntry(ctx context.Context, actorID int64, in core.EntryInp
 		if err != nil {
 			return err
 		}
-		result = core.Entry{ID: id, AuthorID: actor.ID, Title: title, Body: body, Status: "neu", Signature: core.Signature{Name: actor.Name, At: now}, CreatedAt: now, UpdatedAt: now, Version: 1}
+		result = core.Entry{ID: id, Module: "basis", AuthorID: actor.ID, Title: title, Body: body, Status: "neu", Signature: core.Signature{Name: actor.Name, At: now}, CreatedAt: now, UpdatedAt: now, Version: 1}
 		return appendAudit(ctx, tx, actor, "entry.create", "entry", id, nil, result, now)
 	})
 	if err != nil {
@@ -140,6 +140,9 @@ func (s *Store) UpdateEntry(ctx context.Context, actorID, id int64, in core.Entr
 		before, err := entryFrom(ctx, tx, id)
 		if err != nil {
 			return err
+		}
+		if before.Module != "basis" {
+			return core.ErrValidation
 		}
 		if !core.CanEditEntry(actor, before) || (!core.CanManage(actor) && in.Status != before.Status) {
 			return core.ErrForbidden

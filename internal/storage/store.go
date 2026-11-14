@@ -23,9 +23,24 @@ import (
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-type Store struct{ db *sql.DB }
+type Store struct {
+	db            *sql.DB
+	priorityScale core.PriorityScale
+}
 
-func Open(path string) (*Store, error) {
+type Options struct{ PriorityScale core.PriorityScale }
+
+func (s *Store) PriorityScale() core.PriorityScale { return s.priorityScale }
+
+func Open(path string) (*Store, error) { return OpenWithOptions(path, Options{}) }
+
+func OpenWithOptions(path string, opts Options) (*Store, error) {
+	if opts.PriorityScale == (core.PriorityScale{}) {
+		opts.PriorityScale = core.DefaultPriorityScale()
+	}
+	if !opts.PriorityScale.Valid() {
+		return nil, fmt.Errorf("Prioritätsskala: %w", core.ErrValidation)
+	}
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("database path: %w", core.ErrValidation)
 	}
@@ -56,7 +71,7 @@ func Open(path string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
-	s := &Store{db: db}
+	s := &Store{db: db, priorityScale: opts.PriorityScale}
 	if err = db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("open database: %w", err)
@@ -64,6 +79,17 @@ func Open(path string) (*Store, error) {
 	if err = s.migrate(context.Background()); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate database: %w", err)
+	}
+	var incompatible int
+	if err = db.QueryRow(`SELECT count(*) FROM entries WHERE
+ (employee_priority IS NOT NULL AND (employee_priority<? OR employee_priority>?)) OR
+ (supervisor_priority IS NOT NULL AND (supervisor_priority<? OR supervisor_priority>?))`, s.priorityScale.Min, s.priorityScale.Max, s.priorityScale.Min, s.priorityScale.Max).Scan(&incompatible); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if incompatible > 0 {
+		db.Close()
+		return nil, fmt.Errorf("Prioritätsskala schließt gespeicherte Werte aus: %w", core.ErrValidation)
 	}
 	return s, nil
 }
