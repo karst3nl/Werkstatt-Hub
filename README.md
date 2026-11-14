@@ -1,6 +1,6 @@
 # Werkstatt-Hub
 
-Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 bis 4 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie, Ideenboard mit zwei unabhängigen Prioritäten, ein Aufgabenboard mit Fälligkeiten und Abnahme sowie Werkzeugbestand, Zustandsmeldungen und Anschaffungswünsche. Oberfläche und Fehlermeldungen sind deutsch.
+Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 bis 4 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, passwortgeschützter Admin-Zugang, Rollen, signierte Beiträge mit Kommentaren und Änderungshistorie, Ideenboard mit zwei unabhängigen Prioritäten, ein Aufgabenboard mit Fälligkeiten und Abnahme sowie Werkzeugbestand, Zustandsmeldungen und Anschaffungswünsche. Oberfläche und Fehlermeldungen sind deutsch.
 
 ## Tech-Stack
 
@@ -14,11 +14,10 @@ Voraussetzung: **Go 1.26 oder neuer**. Für das erstmalige Laden der versioniert
 git clone --branch alpha https://github.com/karst3nl/Werkstatt-Hub.git
 cd Werkstatt-Hub
 go mod download
-go run ./cmd/werkstatt-hub init --admin "Werkstatt Admin"
 go run ./cmd/werkstatt-hub serve
 ```
 
-Öffnen: **http://127.0.0.1:8080**. Das Dashboard erscheint direkt ohne Anmeldung. Zum Einrichten über **Admin** (`/admin/login`) den eingerichteten Admin wählen. Unter **Benutzerverwaltung** Mitarbeiter und Vorgesetzte anlegen. Diese erscheinen bei der Erstellerwahl in neuen Beiträgen und in der optionalen Namensauswahl für Bearbeitungen. Es werden keine Beispielnutzer oder Einträge automatisch angelegt. `init` funktioniert ausschließlich bei einer noch leeren Benutzerliste; erneuter Aufruf überschreibt nichts.
+Öffnen: **http://127.0.0.1:8080**. Das Dashboard erscheint direkt ohne Anmeldung. Beim ersten Serverstart wird das Konto **Admin** automatisch angelegt; sein zufälliges **Startpasswort** steht einmalig in der lokalen Serverkonsole. Über **Admin** (`/admin/login`) mit diesem Passwort anmelden und anschließend ein neues Passwort festlegen. Erst danach ist die Verwaltung freigeschaltet. Unter **Benutzerverwaltung** kann der Admin Mitarbeiter und Vorgesetzte anlegen. Es werden keine Beispielbeiträge angelegt. Ein vorheriger `init`-Aufruf ist nicht erforderlich.
 
 Standardmäßig liegen sämtliche Laufzeitdaten **außerhalb des Checkouts** unter `../werkstatt-hub-data/werkstatt-hub.db`. Alle relativen Pfade beziehen sich auf das aktuelle Arbeitsverzeichnis, nicht auf den Ort der Konfigurationsdatei. SQLite erzeugt bei laufendem Betrieb gegebenenfalls zusätzliche WAL-/SHM-Dateien im selben Verzeichnis.
 
@@ -28,7 +27,6 @@ Ohne Konfigurationsdatei gelten die Werte aus `config.example.json`. Für eigene
 
 ```sh
 cp config.example.json config.local.json
-go run ./cmd/werkstatt-hub init --config config.local.json --admin "Werkstatt Admin"
 go run ./cmd/werkstatt-hub serve --config config.local.json
 ```
 
@@ -51,21 +49,35 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/werkstatt-hub-linux-arm64 
 
 Für ein späteres Deployment werden nur das passende Binary, eine lokale Konfiguration und ein beschreibbares Datenverzeichnis benötigt. Auf dem Pi einen festen Arbeitsordner oder absolute Datenbankpfade verwenden. Das Programm beendet HTTP-Verbindungen bei SIGINT/SIGTERM geordnet. systemd-Service und automatisierte lokale/NAS-Backups folgen in Meilenstein 8. Bis dahin zum Sichern die App stoppen und das vollständige Datenverzeichnis kopieren.
 
+## Admin-Zugang und Nutzerverwaltung
+
+Bei der ersten Einrichtung sowie für bestehende aktive Admins ohne Passwort erzeugt der Server jeweils ein zufälliges Startpasswort. Es gibt kein universelles Standardpasswort im Repository. Die einmalige Ausgabe erfolgt nur bei der lokalen Einrichtung; ein Neustart setzt vorhandene Passwörter nicht zurück und gibt sie nicht erneut aus. Das Startpasswort bis zum Abschluss der Einrichtung bereithalten.
+
+Nach der ersten Passwortanmeldung ist der Wechsel unter `/admin/password` verpflichtend. Das neue Passwort muss sich vom bisherigen unterscheiden und 12 bis 128 Zeichen bei höchstens 512 UTF-8-Bytes haben. Bis zum Wechsel sind geschützte Aktionen gesperrt; das öffentlich lesbare Dashboard bleibt erreichbar. Passwortwechsel und Zurücksetzen machen bisherige Sitzungen ungültig. Die bloße Namensauswahl oder eine frühere Mitarbeitersitzung gewährt keine Admin-Rechte.
+
+**Nur ein vollständig angemeldeter Admin** kann Nutzer anlegen, ändern, deaktivieren, löschen und Rollen vergeben. Bei einem neuen Admin oder einer Beförderung zum Admin legt der handelnde Admin ein temporäres Passwort fest; das Zielkonto muss es nach der Anmeldung ändern. Bei bestehenden Admins kann ein temporäres Passwort zum Zurücksetzen gesetzt werden. Der letzte aktive Admin kann weder gelöscht noch deaktiviert oder heruntergestuft werden.
+
+**Nutzer löschen** entfernt die Person aus Benutzer- und Erstellerlisten sowie der Anmeldung und beendet ihre Sitzungen. Der historische Nutzerdatensatz bleibt als gelöschter, inaktiver Datensatz bestehen, damit Einträge, Signaturen, Abnahmen und Audit-Verweise erhalten bleiben. Ein später neu angelegter gleichnamiger Nutzer erhält eine eigene ID. Es gibt keine Selbstregistrierung oder allgemeine Profilbearbeitung.
+
+Admin-Passwörter werden ausschließlich als gesalzene PBKDF2-SHA256-Hashes mit 600.000 Iterationen in der lokalen Datenbank gespeichert. Passwörter und Hashes werden nicht in Audit-Einträge, Benutzeransichten oder URLs übernommen. Die bewusste einmalige Startpasswortausgabe in der lokalen Serverkonsole ist für die Einrichtung vorgesehen. Mitarbeiter und Vorgesetzte nutzen weiterhin die optionale Namensauswahl ohne Passwort.
+
 ## Dashboard und Erstellerwahl
 
-Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Auf breiten Bildschirmen stehen Aufgaben links, Werkzeuge und Anschaffungen in der Mitte und Ideen rechts nebeneinander. Auf schmalen Bildschirmen folgen diese Bereiche in derselben Reihenfolge untereinander; Basiseinträge stehen darunter. Basiseinträge, Ideenboard, Aufgabenboard, Werkzeugbestand, Zustandsmeldungen, Anschaffungswünsche, deren Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
+Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Auf breiten Bildschirmen stehen Aufgaben links, Werkzeuge und Anschaffungen in der Mitte und Ideen rechts nebeneinander. Auf schmalen Bildschirmen folgen diese Bereiche in derselben Reihenfolge untereinander. Ideenboard, Aufgabenboard, Werkzeugbestand, Zustandsmeldungen, Anschaffungswünsche, deren Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
 
-Bei **jedem neuen Basiseintrag, jeder Idee, jeder Werkzeugmeldung und jedem Anschaffungswunsch** ist im Formular ein aktiver **Ersteller** aus der Namensliste auszuwählen. Die Auswahl beginnt leer, auch bei einer bestehenden Sitzung. Name, Autor-ID und Signaturzeit werden serverseitig aus diesem Nutzer und der aktuellen Uhrzeit erzeugt. Freie Signatur- oder Zeitangaben aus dem Browser werden nicht übernommen. Fehlende, unbekannte und deaktivierte Ersteller werden abgewiesen.
+Bei **jeder neuen Idee, jeder Werkzeugmeldung und jedem Anschaffungswunsch** ist im Formular ein aktiver **Ersteller** aus der Namensliste auszuwählen. Die Auswahl beginnt leer, auch bei einer bestehenden Sitzung. Name, Autor-ID und Signaturzeit werden serverseitig aus diesem Nutzer und der aktuellen Uhrzeit erzeugt. Freie Signatur- oder Zeitangaben aus dem Browser werden nicht übernommen. Fehlende, unbekannte, deaktivierte und gelöschte Ersteller werden abgewiesen.
 
-Die Erstellerwahl gilt ausschließlich für den neuen Beitrag: Sie erzeugt keine Anmeldung und wechselt keine bestehende Sitzung, auch bei Auswahl eines Admins. Bei diesen ohne Sitzung anlegbaren Beiträgen nennt das Audit der Neuanlage den gewählten Ersteller. Zum Kommentieren, Bewerten und Bearbeiten wählt man weiterhin über **Namen wählen** den eigenen Namen; Audit und Verwaltung behalten ihre Rollenprüfungen und den separaten Admin-Zugang. Bei Basiseinträgen, Ideen, Werkzeugmeldungen und Anschaffungswünschen können alle aktiven Autorenrollen ausgewählt werden; Rechte für spätere Bearbeitungen entstehen daraus nicht automatisch. Das Anlegen und Zuweisen einer Aufgabe sowie das Anlegen und Pflegen des Werkzeugbestands erfordern dagegen eine aktive Vorgesetzten- oder Admin-Sitzung. Für neue Aufgaben und Werkzeuge wird auch ein entsprechend berechtigter Ersteller gewählt; Audit-Akteur bleibt der tatsächlich handelnde Sitzungsnutzer.
+Die Erstellerwahl gilt ausschließlich für den neuen Beitrag: Sie erzeugt keine Anmeldung und wechselt keine bestehende Sitzung, auch bei Auswahl eines Admins. Bei diesen ohne Sitzung anlegbaren Beiträgen nennt das Audit der Neuanlage den gewählten Ersteller. Zum Kommentieren, Bewerten und Bearbeiten wählen Mitarbeiter und Vorgesetzte über **Namen wählen** den eigenen Namen; Admins verwenden ihren Passwortzugang. Audit und Verwaltung behalten ihre Rollenprüfungen. Bei Ideen, Werkzeugmeldungen und Anschaffungswünschen können alle aktiven Autorenrollen ausgewählt werden; Rechte für spätere Bearbeitungen entstehen daraus nicht automatisch. Das Anlegen und Zuweisen einer Aufgabe sowie das Anlegen und Pflegen des Werkzeugbestands erfordern dagegen eine aktive Vorgesetzten- oder Admin-Sitzung. Für neue Aufgaben und Werkzeuge wird auch ein entsprechend berechtigter Ersteller gewählt; Audit-Akteur bleibt der tatsächlich handelnde Sitzungsnutzer.
 
 ## Ideenboard und Prioritäten
 
 Über **Ideenboard** (`/ideas`) neue Ideen mit Titel, Beschreibung und Kategorie vorschlagen. Kategorien sind vorerst frei benannte Pflichtfelder mit höchstens 100 Zeichen; bereits verwendete Kategorien werden vorgeschlagen. Der Startwert im Formular ist „Allgemein“. Eine zentrale Kategorienverwaltung folgt in Meilenstein 7.
 
-Beim Anlegen einer Idee ist wie bei einem Basiseintrag der Ersteller ausdrücklich auszuwählen. Eine Idee beginnt als **Neu**. Vorgesetzte und Admins können den Status auf **In Prüfung**, **Geplant**, **Umgesetzt** oder **Abgelehnt** setzen. Autor und ursprüngliche Signatur bleiben erhalten. Titel, Beschreibung, Kategorie, Status und Prioritäten verwenden dieselbe Versionsprüfung, damit veraltete Formulare keine inzwischen erfolgte Änderung überschreiben.
+Beim Anlegen einer Idee ist der Ersteller ausdrücklich auszuwählen. Eine Idee beginnt als **Neu**. Vorgesetzte und Admins können den Status auf **In Prüfung**, **Geplant**, **Umgesetzt** oder **Abgelehnt** setzen. Autor und ursprüngliche Signatur bleiben erhalten. Titel, Beschreibung, Kategorie, Status und Prioritäten verwenden dieselbe Versionsprüfung, damit veraltete Formulare keine inzwischen erfolgte Änderung überschreiben.
 
-Beide Prioritäten sind ohne Anmeldung im Werkstattnetz sichtbar und haben dieselbe konfigurierbare Skala. Größere Zahlen bedeuten höhere Priorität. Die Werte können auch bei den bisherigen Basiseinträgen gesetzt werden:
+Beide Prioritäten sind ohne Anmeldung im Werkstattnetz sichtbar und haben dieselbe konfigurierbare Skala. Größere Zahlen bedeuten höhere Priorität. Die gemeinsame Darstellung zeigt immer **fünf lokal ausgelieferte Schraubenschlüssel**: Bei der Standardskala 1–5 sind entsprechend viele Symbole gefüllt, von Grün über Hellgrün, Gelb und Orange bis Rot. Übrige Symbole bleiben als graue Umrisse sichtbar; ohne Bewertung werden fünf graue Umrisse und „Noch nicht gesetzt“ angezeigt. Zugängliche Beschriftungen nennen den ursprünglichen Wert und die Skala. Bei anderen konfigurierten Skalen wird nur die Darstellung auf fünf Stufen abgebildet; gespeicherte Werte, Filter und Audit bleiben unverändert. Die Eingabefelder dürfen weiterhin numerische Werte verwenden.
+
+Für das Setzen und Löschen gelten folgende Rechte:
 
 - **Mitarbeiter-Priorität:** Mitarbeiter dürfen sie bei allen Einträgen setzen. Der jeweilige Ersteller darf sie unabhängig von seiner Rolle bei eigenen Einträgen setzen. Vorgesetzte und Admins dürfen den Mitarbeiterwert anderer Ersteller nicht überschreiben.
 - **Vorgesetzten-Priorität:** Vorgesetzte und Admins dürfen sie bei allen Einträgen setzen.
@@ -114,7 +126,7 @@ Die **Historie pro Werkzeug** zeigt ausschließlich zugehörige Änderungen am W
 
 ## Rechte und weitere Annahmen
 
-Lesen sowie die Neuanlage von Basiseinträgen, Ideen, Werkzeugmeldungen und Anschaffungswünschen mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für weitere Aktionen gelten in einer aktiven Namenssitzung folgende Rechte; die ersten Status- und Textregeln beziehen sich auf Basiseinträge und Ideen:
+Lesen sowie die Neuanlage von Ideen, Werkzeugmeldungen und Anschaffungswünschen mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für weitere Aktionen gelten in einer aktiven Sitzung (bei Admins nach Passwortanmeldung und Pflichtwechsel) folgende Rechte; die ersten Status- und Textregeln beziehen sich auf Ideen:
 
 | Aktion | Mitarbeiter (inkl. Azubi) | Vorgesetzter | Admin |
 | --- | --- | --- | --- |
@@ -130,20 +142,20 @@ Lesen sowie die Neuanlage von Basiseinträgen, Ideen, Werkzeugmeldungen und Ansc
 | Werkzeugmeldungen ändern | Eigene Texte und Beobachtung | Alle, einschließlich Status | Alle, einschließlich Status |
 | Anschaffungswünsche ändern | Eigene, solange „Gewünscht“ | Alle, einschließlich Status | Alle, einschließlich Status |
 | Vollständiges Audit-Log ansehen | Nein | Ja | Ja |
-| Benutzer anlegen, umbenennen, deaktivieren, Rollen setzen | Nein | Nein | Ja |
+| Benutzer anlegen, ändern, deaktivieren, löschen und Rollen setzen | Nein | Nein | Ja, nach Passwortwechsel |
 
-- Die optionale Namenssitzung und die Erstellerwahl verwenden weiterhin **keine Passwörter/PINs**, auch auf der separaten Admin-Anmeldeseite. Sie benennen die gewählte Person, prüfen ihre Identität jedoch nicht. Wer das Werkstattnetz erreicht, kann auch einen Admin-Namen auswählen. Nur in diesem vertrauten lokalen Netz betreiben. Eine Signatur ist Name + Serverzeit, keine kryptografische Unterschrift.
-- Rollenprüfungen erfolgen serverseitig. Inaktive Nutzer erscheinen weder in der Erstellerwahl noch in der Anmeldung. Bestehende Sitzungen berücksichtigen Deaktivierungen und Rollenänderungen sofort; öffentliches Lesen bleibt möglich. Authentifizierung und Sitzungen sind im Webpaket gekapselt und können später um PIN/Passwort ergänzt werden. Sitzungen liegen nur im Arbeitsspeicher, laufen ab und enden bei Neustart.
-- Jeder Basiseintrag beginnt mit Status `neu`. Weitere Basisstatus: `in_pruefung`, `geplant`, `erledigt`, `abgelehnt`. Ideen, Aufgaben, Werkzeugmeldungen und Anschaffungswünsche verwenden die oben beschriebenen eigenen Statusabläufe.
+- Mitarbeiter und Vorgesetzte verwenden die einfache Namensauswahl; Admins melden sich mit Passwort an. Eine Erstellerwahl im Beitragsformular stellt keine Anmeldung dar und gewährt keine Admin-Rechte. Eine Signatur ist Name + Serverzeit, keine kryptografische Unterschrift. Die App ist für das vertraute Werkstattnetz vorgesehen.
+- Rollenprüfungen erfolgen serverseitig. Inaktive und gelöschte Nutzer erscheinen weder in der Erstellerwahl noch in der Anmeldung. Bestehende Sitzungen berücksichtigen Deaktivierungen, Löschung und Rollenänderungen sofort; öffentliches Lesen bleibt möglich. Admin-Passwortanmeldung und normale Namenssitzungen sind gekapselt. Sitzungen liegen nur im Arbeitsspeicher, laufen ab und enden bei Neustart.
+- Generische Basiseinträge wurden aus Oberfläche und HTTP-Routen (`/entries/*`) entfernt. Bereits gespeicherte Basisdaten und deren Audit-Historie werden durch das Update nicht gelöscht. Ideen, Aufgaben, Werkzeugmeldungen und Anschaffungswünsche verwenden die oben beschriebenen eigenen Statusabläufe.
 - Signaturen und Autor bleiben unverändert, auch nach einer Benutzerumbenennung. Kommentare sind nach dem Absenden unveränderlich. Signatur- und Audit-Zeiten werden in UTC gespeichert und angezeigt; Aufgabenfälligkeiten verwenden lokale Kalenderdaten.
 - Änderungen an Einträgen, Kommentare und Benutzerverwaltung werden atomar mit dem Audit-Ereignis gespeichert: Akteur als ID und damaliger Name, Serverzeit, Aktion und vollständiger vorheriger/neuer Zustand. Bei einem Audit-Fehler wird die gesamte Änderung zurückgerollt. Parallele Eintragsbearbeitungen erkennen veraltete Versionen und überschreiben diese nicht.
 - Das Audit-Log ist über App und Datenbank-Trigger nur erweiterbar. Die gemeinsame Anwendungsschicht schützt alle Schreibvorgänge; direkter Zugriff auf die SQLite-Datei gehört zum vertrauenswürdigen Betrieb und ist kein unterstützter Schreibweg.
-- Eine aktive Admin-Person muss erhalten bleiben. Der letzte aktive Admin kann weder deaktiviert noch heruntergestuft werden.
-- Ideen, Aufgaben, Werkzeuge, Meldungen, Anschaffungswünsche und generische Basiseinträge einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Material- und Kummerkastenmodule folgen noch. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
+- Eine aktive Admin-Person muss erhalten bleiben. Der letzte aktive Admin kann weder gelöscht, deaktiviert noch heruntergestuft werden.
+- Ideen, Aufgaben, Werkzeuge, Meldungen und Anschaffungswünsche einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Material- und Kummerkastenmodule folgen noch. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
 
 ## Bestehende Installation aktualisieren
 
-Bei einem Update einer bestehenden Installation zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Fehlende versionierte Migrationen werden beim Start automatisch angewendet: Migration 002 ergänzt Ideen/Prioritäten, Migration 003 das Aufgabenboard und die neue Migration 004 die Werkzeugverwaltung. IDs, Nutzer, Basis- und Ideeneinträge, Aufgaben einschließlich Abnahmen, Signaturen, Kommentare, Prioritäten und Audit-Historie aus Meilensteinen 1 bis 3 bleiben erhalten. Bereits angewendete Migrationen 001 bis 003 werden nicht verändert. Meilenstein 4 benötigt keine neuen Konfigurationswerte; alte Konfigurationen übernehmen für bisher fehlende Angaben `timezone` und `reminder_days` automatisch die Standardwerte. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
+Bei einem Update einer bestehenden Installation zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Fehlende versionierte Migrationen werden beim Start automatisch angewendet. Die neue Migration **005** ergänzt Admin-Zugangsdaten sowie Lösch- und Sitzungsversionen für Nutzer. Bestehende IDs, Basis- und Fachbeiträge, Aufgabenabnahmen, Kommentare, Prioritäten, Signaturen und Audit-Daten bleiben erhalten; bisherige Migrationen werden nicht verändert. Bereits vorhandene aktive Admins ohne Passwort erhalten beim ersten anschließenden Serverstart jeweils ein einmaliges Startpasswort in der lokalen Konsole und müssen es ändern. Bereits gesetzte Admin-Passwörter werden nicht zurückgesetzt. Neue Konfigurationswerte sind dafür nicht nötig. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
 
 ## Datenbank und Entwicklung
 
@@ -161,6 +173,7 @@ Versionierte SQL-Migrationen liegen in `internal/storage/migrations/` und werden
 cmd/werkstatt-hub/              Start, einmalige Admin-Einrichtung, Migrationen
 internal/config/               Lokale JSON-Konfiguration
 internal/core/                 Gemeinsame Modelle, Rechte und Prioritätsskala
+internal/auth/                 Passwortprüfung und Erzeugung von Startpasswörtern
 internal/ideas/                Eigenes Ideenmodell und Statusregeln
 internal/tasks/                Aufgaben, Statusrechte und Kalender-Erinnerungen
 internal/tooling/              Werkzeugbestand, Zustandsmeldungen und Anschaffung
@@ -173,6 +186,4 @@ Tests verwenden ausschließlich temporäre Verzeichnisse. Datenbanken, Uploads, 
 
 Ideenboard, Aufgabenboard und Werkzeugverwaltung sind eigene Fachpakete und nutzen die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgen Verbrauchsmaterialien mit Bestandswarnungen und Abhaken (Meilenstein 5), danach Kummerkasten, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
 
-Für Version **0.4.0** sind `go test -race ./...`, `go vet ./...` sowie Builds ohne CGO für Linux/AMD64 und Linux/ARM64 erfolgreich. Die Tests prüfen Rollen und aktive Ersteller, unveränderliche Signaturen, die Trennung von Werkzeugzustand und Meldung, Beschaffungsrechte, vollständige Prioritäts-Snapshots, begrenzte öffentliche Historien, Audit-Rollback und konkurrierende Bearbeitungen. Migration 004 ist mit bestehenden Aufgaben einschließlich signierter Abnahme, Kommentaren, Prioritäten und unveränderten Audit-Bytes geprüft.
-
-Der vollständige Chromium-Ablauf deckt Werkzeuganlage, Zustandsmeldung, offizielle Zustandspflege, Kommentieren/Priorisieren, Anschaffung bis zur Lieferung, Historienbegrenzung sowie Filter, Sortierung und Suche bei 320, 390, 768 und 1360 Pixeln ab. Dashboard und neue Meldungen/Wünsche sind direkt erreichbar; Erstellerwahl erzeugt keine Sitzung. Alle geladenen Ressourcen sind lokal. Zusätzlich wurde eine bestehende Meilenstein-3-Testdatenbank aktualisiert und der unveränderte Inhalt der bisherigen Tabellen verglichen. Getestete Toolchain: Go 1.27.4. Der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.
+Version **0.4.2** wurde mit vollständigen Race-Tests, `go vet` und Builds ohne CGO für AMD64 und ARM64 geprüft. Der Chromium-Ablauf bei 320–1440 Pixeln bestätigt die automatische Admin-Einrichtung, den verpflichtenden Passwortwechsel, Sitzungswiderruf sowie ausschließlich administrative Nutzerverwaltung und Löschung mit erhaltenen historischen Signaturen. Entfernte Basisrouten und fünf zugängliche Schraubenschlüsselsymbole für alle Prioritätsstufen wurden ebenfalls geprüft. Migration 005 erhält die bestehenden Daten einschließlich Aufgabenabnahmen und Audit-Historie; ein anschließender Neustart erhält das gesetzte Passwort und erzeugt kein weiteres Startpasswort. Noch kein Lauf auf echter Pi-Hardware.

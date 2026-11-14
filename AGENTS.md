@@ -31,13 +31,14 @@ Nutzer: Mitarbeiter, Azubis und Vorgesetzte. Sprache der Oberfläche: **Deutsch*
 
 ## 4. Rollen und Anmeldung
 - Rollen: **Mitarbeiter** (inkl. Azubis), **Vorgesetzter**, **Admin**.
-- **Startseite ohne Anmeldung:** Beim Aufrufen der App öffnet sich direkt das Dashboard. Basiseinträge, Ideenboard, Aufgabenboard, Werkzeugbestand, Zustandsmeldungen, Anschaffungswünsche, deren Detailansichten und vorhandene Kommentare sind im Werkstattnetz ohne Namenssitzung lesbar.
-- **Erstellerwahl pro neuem Beitrag:** Beim Erstellen eines Basiseintrags, einer Idee, Werkzeugmeldung oder eines Anschaffungswunsches wird ein aktiver Ersteller aus der Namensliste ausdrücklich ausgewählt. Die Auswahl gilt nur für diesen Beitrag, erzeugt keine Sitzung und wechselt keine vorhandene Sitzung. Sie bestimmt Autor, Signatur und Audit-Akteur der Neuanlage.
+- **Startseite ohne Anmeldung:** Beim Aufrufen der App öffnet sich direkt das Dashboard. Ideenboard, Aufgabenboard, Werkzeugbestand, Zustandsmeldungen, Anschaffungswünsche, deren Detailansichten und vorhandene Kommentare sind im Werkstattnetz ohne Namenssitzung lesbar.
+- **Erstellerwahl pro neuem Beitrag:** Beim Erstellen einer Idee, Werkzeugmeldung oder eines Anschaffungswunsches wird ein aktiver Ersteller aus der Namensliste ausdrücklich ausgewählt. Die Auswahl gilt nur für diesen Beitrag, erzeugt keine Sitzung und wechselt keine vorhandene Sitzung. Sie bestimmt Autor, Signatur und Audit-Akteur der Neuanlage.
 - **Aufgabenzuweisung:** Neue Aufgaben benötigen eine aktive Vorgesetzten- oder Admin-Sitzung. Der ausdrücklich gewählte Ersteller muss ebenfalls ein aktiver Vorgesetzter oder Admin sein. Er signiert den Eintrag; Audit-Akteur bleibt der tatsächliche Sitzungsnutzer. Die Erstellerwahl wechselt keine Sitzung.
 - **Werkzeugbestand:** Neue Werkzeuge benötigen wie Aufgaben eine aktive Vorgesetzten- oder Admin-Sitzung und einen ausdrücklich gewählten aktiven Vorgesetzten/Admin als Ersteller. Der gewählte Ersteller signiert; Audit-Akteur bleibt der handelnde Sitzungsnutzer. Bestand, offizieller Zustand und Beschaffungsstatus werden nur von Vorgesetzten/Admins gepflegt.
-- **Optionale Namenssitzung:** Zum Kommentieren, Bewerten und Bearbeiten wird weiterhin der eigene Name aus einer Liste gewählt, ohne Passwort. Das ist bewusst simpel, weil die App nur im Werkstattnetz läuft. Geschützte Aktionen behalten ihre Rollenprüfungen.
+- **Admin-Zugang mit Passwort:** Beim ersten Serverstart wird das Konto „Admin“ automatisch angelegt und ein zufälliges Startpasswort einmalig in der lokalen Serverkonsole ausgegeben. Beim Upgrade erhalten bestehende aktive Admins ohne Passwort ebenfalls einmalig ein Startpasswort. Vor geschützten Aktionen muss ein neues Passwort festgelegt werden; bereits gesetzte Passwörter werden bei Neustarts nicht zurückgesetzt. Es gibt kein universelles Passwort im Repository.
+- **Optionale Namenssitzung:** Mitarbeiter und Vorgesetzte wählen zum Kommentieren, Bewerten und Bearbeiten weiterhin den eigenen Namen aus einer Liste, ohne Passwort. Admins benötigen eine Passwortanmeldung; eine Namensauswahl oder Erstellerwahl gewährt keine Admin-Rechte. Geschützte Aktionen behalten ihre Rollenprüfungen.
 - Den Auth-Teil so kapseln, dass später PIN oder Passwort ergänzt werden kann, ohne den Rest umzubauen.
-- Admin-Zugang separat (Benutzer anlegen, deaktivieren, Rollen setzen, Einstellungen).
+- Nutzer dürfen ausschließlich von einem vollständig angemeldeten Admin erstellt, geändert, deaktiviert und gelöscht werden. Neue oder hochgestufte Admins erhalten ein temporäres Passwort mit Wechselpflicht. Der letzte aktive Admin kann nicht gelöscht, deaktiviert oder heruntergestuft werden. Gelöschte Nutzer verschwinden aus aktuellen Listen; historische IDs, Signaturen und Audit-Verweise bleiben erhalten.
 
 ## 5. Gemeinsame Basis aller Einträge
 Jeder Eintrag (Idee, Werkzeugmeldung, Kummerkasten, Aufgabe, Verbrauchsmaterial-Meldung) hat:
@@ -55,6 +56,7 @@ Keine Anonymität, auch nicht im Kummerkasten (erste Version).
 - Skala (Vorschlag, konfigurierbar): 1 bis 5. Codex darf eine andere sinnvolle Skala wählen, solange sie für beide Seiten gleich ist.
 - Sortierung und Filter nach beiden Prios. Starke Abweichung zwischen beiden sichtbar machen (z. B. Icon).
 - Jede Prio-Änderung wird im Audit-Log protokolliert.
+- Darstellung mit fünf lokalen SVG-Schraubenschlüsseln: gesetzte Stufen werden von Grün über Gelb/Orange bis Rot gefüllt, übrige Symbole bleiben grau umrandet. Zugängliche Beschriftungen nennen Wert und Skala. Andere konfigurierte Skalen werden nur für die Anzeige auf fünf Stufen abgebildet; gespeicherte Werte bleiben unverändert.
 
 ## 7. Module
 
@@ -86,13 +88,13 @@ Eintrag mit Titel, Text, Kategorie, Status, signiert. Sichtbarkeit und Rechte al
 - Optional vorbereiten: Prüfintervalle (z. B. wöchentliche Bestandsprüfung als wiederkehrende Azubi-Aufgabe).
 
 ## 8. Startseite (Dashboard)
-- Desktop-Anordnung: Aufgaben links, Werkzeuge und Anschaffungen mittig, Ideen rechts. Auf schmalen Bildschirmen in derselben Reihenfolge untereinander; Basiseinträge darunter.
+- Desktop-Anordnung: Aufgaben links, Werkzeuge und Anschaffungen mittig, Ideen rechts. Auf schmalen Bildschirmen in derselben Reihenfolge untereinander. Generische Basiseinträge entfallen aus Oberfläche und `/entries/*`; vorhandene historische Daten werden nicht gelöscht.
 - Offene Warnungen (Verbrauchsmaterial) ganz oben, mit Abhaken-Funktion für Vorgesetzte.
 - Meine Aufgaben und Erinnerungen.
 - Neueste und höchstpriorisierte Einträge pro Bereich.
 
 ## 9. Admin-Bereich
-- Benutzerverwaltung (anlegen, deaktivieren, Rolle).
+- Benutzerverwaltung ausschließlich durch vollständig angemeldete Admins (anlegen, ändern, deaktivieren, löschen, Rollen setzen).
 - Stammdaten: Kategorien, Prioskala, Materialien, Mindestbestände.
 - **Grundstein für Foto-Uploads:** Datenmodell, Speicherort und Upload-Mechanik vorbereiten, aber in der Oberfläche der ersten Version noch nicht ausspielen. Uploads liegen lokal auf dem Pi, außerhalb des Repos.
 
@@ -115,7 +117,7 @@ Eintrag mit Titel, Text, Kategorie, Status, signiert. Sichtbarkeit und Rechte al
 Jedes Modul ist ein eigenes Paket mit eigenem Datenmodell, nutzt aber gemeinsam Benutzer-, Prio-, Audit- und Kommentarlogik. Neue Bereiche sollen ohne Umbau des Kerns ergänzbar sein.
 
 ## 13. Bewusst noch nicht in Version 1
-Passwörter oder PIN, Benachrichtigungen (Mail/Push), Foto-Anzeige in der Oberfläche, Anonymität, Zugriff von außen, Ausleihe-System für Werkzeuge.
+Passwörter oder PIN für Mitarbeiter und Vorgesetzte (Admin-Passwörter sind umgesetzt), Benachrichtigungen (Mail/Push), Foto-Anzeige in der Oberfläche, Anonymität, Zugriff von außen, Ausleihe-System für Werkzeuge.
 
 ## 14. Umsetzungsstand
 - **Meilenstein 1 umgesetzt:** Go/SQLite-Projektgerüst, lokale Konfiguration, deutsche Namensauswahl mit separatem Admin-Zugang, Rollen, Basiseinträge und Kommentare mit unveränderlicher Signatur, atomarer Audit-Verlauf und versionierte Migrationen.
@@ -136,4 +138,9 @@ Passwörter oder PIN, Benachrichtigungen (Mail/Push), Foto-Anzeige in der Oberfl
 - Meldungen und Wünsche sind mit aktiver Erstellerwahl ohne Sitzung anlegbar. Mitarbeiter bearbeiten eigene Wünsche nur im Status „Gewünscht“; Beschaffungsstatus und Bestandsdaten sind Vorgesetzten/Admins vorbehalten. Die öffentliche Werkzeughistorie umfasst ausschließlich konkret zugehörige Ereignisse; das vollständige Audit bleibt geschützt.
 - Migration 004 ergänzt das Werkzeugmodul unter Erhalt der bisherigen IDs, Aufgabenabnahmen, Kommentare, Prioritäten, Signaturen und Audit-Historie. Prüfschwerpunkte für Rechte, Zustand/Meldung, Historienabgrenzung und Migration sind in `README.md` festgehalten.
 - Meilenstein 4 geprüft mit vollständigen Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und einem Chromium-Ablauf bei 320–1360 Pixeln. Migration einer bestehenden Meilenstein-3-Testdatenbank erhält die bisherigen Daten einschließlich Aufgaben und Abnahmen.
+- Ablaufkorrektur nach Nutzerwunsch: Generische Basiseinträge sind aus Oberfläche und HTTP-Routen entfernt; bestehende Basisdaten und Audit-Historie bleiben erhalten.
+- Admin-Zugang mit automatisch erzeugtem einmaligem Startpasswort und verpflichtendem Passwortwechsel. Nur gesalzene Passwort-Hashes werden gespeichert; Passwörter/Hashes erscheinen nicht im Audit oder in Benutzeransichten. Passwort- und Rollenänderungen widerrufen bisherige Sitzungen.
+- Nutzerverwaltung einschließlich Löschung bleibt vollständig Admins vorbehalten. Gelöschte Nutzer werden inaktiv und aus aktuellen Listen entfernt; historische Datensätze, Signaturen und Fremdschlüssel bleiben bestehen. Ein wiederverwendeter Name erhält eine neue Nutzer-ID.
+- Prioritäten werden mit fünf farbigen lokalen Schraubenschlüsseln dargestellt, von Grün bis Rot; unbewertete Stufen bleiben grau. Die Anzeige verändert keine gespeicherten Prioritätswerte.
+- Version 0.4.2 geprüft mit vollständigen Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und einem Chromium-Ablauf bei 320–1440 Pixeln. Migration 005 erhält historische Daten; Admin-Ersteinrichtung, Pflichtwechsel, Sitzungswiderruf, Nutzerlöschung, Prioritätsanzeige und Passwortbestand bei Neustart sind geprüft.
 - **Nächster fachlicher Schritt: Meilenstein 5**, Verbrauchsmaterialien mit Bestandswarnungen und Abhaken durch Vorgesetzte.

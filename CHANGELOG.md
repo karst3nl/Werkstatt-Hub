@@ -2,6 +2,18 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.4.2 – 2026-11-14
+
+### Geändert
+
+- Generische Basiseinträge aus Dashboard und HTTP-Routen entfernt; vorhandene Daten und Audit-Historie bleiben erhalten.
+- Admin-Konto wird beim ersten Serverstart automatisch eingerichtet. Ein zufälliges Startpasswort wird einmalig lokal ausgegeben und muss vor geschützten Aktionen geändert werden.
+- Admin-Anmeldung mit Passwort, gesalzenem Passwort-Hash und Widerruf bisheriger Sitzungen bei Passwort- oder Rollenänderungen.
+- Nutzer können ausschließlich von vollständig angemeldeten Admins erstellt, geändert, deaktiviert und gelöscht werden. Historische Nutzerbezüge bleiben bei Löschung erhalten; der letzte aktive Admin ist geschützt.
+- Neue Admins, Beförderungen und Passwort-Rücksetzungen verwenden temporäre Passwörter mit Wechselpflicht.
+- Prioritätsanzeige mit fünf lokalen SVG-Schraubenschlüsseln, gefüllten Stufen von Grün bis Rot und grauen übrigen Symbolen; ursprüngliche Werte und konfigurierbare Skala bleiben erhalten.
+- Migration 005 ergänzt Zugangsdaten sowie Nutzer-Löschstatus und Sitzungsversionen ohne Entfernen historischer Beiträge.
+
 ## 0.4.1 – 2026-11-14
 
 ### Geändert
