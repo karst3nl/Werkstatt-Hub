@@ -40,6 +40,6 @@ type PriorityChange struct {
 }
 
 func CanSetEmployeePriority(u User, e Entry) bool {
-	return u.Active && u.Role.Valid() && (u.Role == RoleEmployee || u.ID == e.AuthorID)
+	return u.Active && !u.Deleted && u.Role.Valid() && (u.Role == RoleEmployee || u.ID == e.AuthorID)
 }
 func CanSetSupervisorPriority(u User) bool { return CanManage(u) }

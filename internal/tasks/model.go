@@ -78,7 +78,7 @@ func (s Settings) Reminder(t Task, now time.Time) string {
 	return ""
 }
 func CanChangeStatus(u core.User, t Task, target string) bool {
-	if !u.Active || !u.Role.Valid() || !ValidStatus(t.Status) || !ValidStatus(target) {
+	if !u.Active || u.Deleted || !u.Role.Valid() || !ValidStatus(t.Status) || !ValidStatus(target) {
 		return false
 	}
 	if core.CanManage(u) {

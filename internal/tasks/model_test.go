@@ -71,7 +71,7 @@ func TestTaskStatusPermissionsAndApprovalBoundary(t *testing.T) {
 			t.Fatalf("%s skipped the review stage", u.Role)
 		}
 	}
-	for _, u := range []core.User{peer, {}, {ID: 2, Role: core.RoleEmployee, Active: false}, {ID: 2, Role: "unknown", Active: true}} {
+	for _, u := range []core.User{peer, {}, {ID: 2, Role: core.RoleEmployee, Active: false}, {ID: 2, Role: "unknown", Active: true}, {ID: 2, Role: core.RoleEmployee, Active: true, Deleted: true}, {ID: 1, Role: core.RoleAdmin, Active: true, Deleted: true}} {
 		if CanChangeStatus(u, task, "in_arbeit") {
 			t.Fatalf("unauthorized actor accepted: %#v", u)
 		}

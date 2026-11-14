@@ -93,5 +93,5 @@ func ValidPurchaseStatus(value string) bool {
 	return false
 }
 func CanEditPurchase(u core.User, p Purchase) bool {
-	return u.Active && u.Role.Valid() && (core.CanManage(u) || u.ID == p.AuthorID && p.Status == "gewuenscht")
+	return u.Active && !u.Deleted && u.Role.Valid() && (core.CanManage(u) || u.ID == p.AuthorID && p.Status == "gewuenscht")
 }

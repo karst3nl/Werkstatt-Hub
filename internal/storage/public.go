@@ -109,7 +109,7 @@ func (s *Store) PublicComments(ctx context.Context, entryID int64) ([]core.Comme
 // ActiveAuthors supplies the per-submission name list without issuing a session
 // or granting that author's permissions to the browser.
 func (s *Store) ActiveAuthors(ctx context.Context) ([]core.User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id,name,role,active FROM users WHERE active=1 ORDER BY name COLLATE NOCASE,id")
+	rows, err := s.db.QueryContext(ctx, "SELECT id,name,role,active FROM users WHERE active=1 AND deleted=0 ORDER BY name COLLATE NOCASE,id")
 	if err != nil {
 		return nil, err
 	}

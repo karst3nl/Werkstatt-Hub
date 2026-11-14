@@ -17,10 +17,12 @@ const (
 func (r Role) Valid() bool { return r == RoleEmployee || r == RoleSupervisor || r == RoleAdmin }
 
 type User struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Role   Role   `json:"role"`
-	Active bool   `json:"active"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Role        Role   `json:"role"`
+	Active      bool   `json:"active"`
+	Deleted     bool   `json:"deleted"`
+	AuthVersion int64  `json:"-"`
 }
 type Signature struct {
 	Name string    `json:"name"`
@@ -72,8 +74,10 @@ var (
 	ErrAlreadyInitialized = errors.New("bereits eingerichtet")
 )
 
-func CanManage(u User) bool { return u.Active && (u.Role == RoleSupervisor || u.Role == RoleAdmin) }
-func CanAdmin(u User) bool  { return u.Active && u.Role == RoleAdmin }
+func CanManage(u User) bool {
+	return u.Active && !u.Deleted && (u.Role == RoleSupervisor || u.Role == RoleAdmin)
+}
+func CanAdmin(u User) bool { return u.Active && !u.Deleted && u.Role == RoleAdmin }
 func CanEditEntry(u User, e Entry) bool {
-	return u.Active && u.Role.Valid() && (u.ID == e.AuthorID || CanManage(u))
+	return u.Active && !u.Deleted && u.Role.Valid() && (u.ID == e.AuthorID || CanManage(u))
 }

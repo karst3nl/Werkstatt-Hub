@@ -115,7 +115,7 @@ func (s *Store) PublicTasks(ctx context.Context, filter tasks.Filter) ([]tasks.T
 	return taskList(ctx, s.db, query, args)
 }
 func (s *Store) TaskAssignees(ctx context.Context) ([]core.User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id,name,role,active FROM users WHERE active=1 AND role=? ORDER BY name COLLATE NOCASE,id", core.RoleEmployee)
+	rows, err := s.db.QueryContext(ctx, "SELECT id,name,role,active FROM users WHERE active=1 AND deleted=0 AND role=? ORDER BY name COLLATE NOCASE,id", core.RoleEmployee)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func taskParticipant(ctx context.Context, q queryer, id int64, author bool) (cor
 	if err != nil {
 		return core.User{}, err
 	}
-	if !u.Active || author && !core.CanManage(u) || !author && u.Role != core.RoleEmployee {
+	if !u.Active || u.Deleted || author && !core.CanManage(u) || !author && u.Role != core.RoleEmployee {
 		return core.User{}, core.ErrValidation
 	}
 	return u, nil

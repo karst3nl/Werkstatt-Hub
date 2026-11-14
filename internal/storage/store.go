@@ -114,7 +114,7 @@ type queryer interface {
 
 func userFrom(ctx context.Context, q queryer, id int64) (core.User, error) {
 	var u core.User
-	err := q.QueryRowContext(ctx, "SELECT id,name,role,active FROM users WHERE id=?", id).Scan(&u.ID, &u.Name, &u.Role, &u.Active)
+	err := q.QueryRowContext(ctx, "SELECT id,name,role,active,deleted,auth_version FROM users WHERE id=?", id).Scan(&u.ID, &u.Name, &u.Role, &u.Active, &u.Deleted, &u.AuthVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = core.ErrNotFound
 	}
@@ -128,16 +128,20 @@ func actorFrom(ctx context.Context, q queryer, id int64) (core.User, error) {
 	if err != nil {
 		return core.User{}, err
 	}
-	if !u.Active || !u.Role.Valid() {
+	if !u.Active || u.Deleted || !u.Role.Valid() {
 		return core.User{}, core.ErrForbidden
 	}
 	return u, nil
 }
 func (s *Store) User(ctx context.Context, id int64) (core.User, error) {
-	return userFrom(ctx, s.db, id)
+	u, err := userFrom(ctx, s.db, id)
+	if err == nil && u.Deleted {
+		return core.User{}, core.ErrNotFound
+	}
+	return u, err
 }
 func (s *Store) Users(ctx context.Context) ([]core.User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id,name,role,active FROM users ORDER BY name COLLATE NOCASE,id")
+	rows, err := s.db.QueryContext(ctx, "SELECT id,name,role,active,deleted,auth_version FROM users WHERE deleted=0 ORDER BY name COLLATE NOCASE,id")
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +149,7 @@ func (s *Store) Users(ctx context.Context) ([]core.User, error) {
 	users := make([]core.User, 0)
 	for rows.Next() {
 		var u core.User
-		if err = rows.Scan(&u.ID, &u.Name, &u.Role, &u.Active); err != nil {
+		if err = rows.Scan(&u.ID, &u.Name, &u.Role, &u.Active, &u.Deleted, &u.AuthVersion); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -183,7 +187,7 @@ func cleanName(s string) (string, error) {
 	return s, nil
 }
 func uniqueName(ctx context.Context, tx *sql.Tx, name string, excludeID int64) error {
-	rows, err := tx.QueryContext(ctx, "SELECT id,name FROM users WHERE id<>?", excludeID)
+	rows, err := tx.QueryContext(ctx, "SELECT id,name FROM users WHERE id<>? AND deleted=0", excludeID)
 	if err != nil {
 		return err
 	}

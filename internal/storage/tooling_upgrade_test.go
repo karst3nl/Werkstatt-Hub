@@ -17,7 +17,11 @@ func toolingUpgradeSnapshot(t *testing.T, db *sql.DB) map[string][][]any {
 	t.Helper()
 	result := make(map[string][][]any)
 	for _, table := range []string{"users", "entries", "comments", "ideas", "tasks", "audit_log"} {
-		rows, err := db.Query("SELECT * FROM " + table + " ORDER BY 1")
+		snapshotSelection := "*"
+		if table == "users" {
+			snapshotSelection = "id,name,role,active"
+		}
+		rows, err := db.Query("SELECT " + snapshotSelection + " FROM " + table + " ORDER BY 1")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -121,7 +125,7 @@ func TestToolingUpgradePreservesMilestoneThreeDataAndGuards(t *testing.T) {
 			t.Fatalf("legacy SQL values changed:\nbefore=%#v\nafter=%#v", before, after)
 		}
 		var count int
-		if err := store.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 4 {
+		if err := store.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 5 {
 			t.Fatalf("migration count=%d, err=%v", count, err)
 		}
 		for version, checksum := range expectedChecksums {
