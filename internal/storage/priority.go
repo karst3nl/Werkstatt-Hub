@@ -78,6 +78,26 @@ func (s *Store) SetPriority(ctx context.Context, actorID, entryID int64, in core
 			auditBefore, auditAfter = previous, updated
 			action, entity = "task.priority", "task"
 		}
+		if before.Module == "werkzeugmeldung" {
+			previous, err := reportFrom(ctx, tx, entryID)
+			if err != nil {
+				return err
+			}
+			updated := previous
+			updated.Entry = after
+			auditBefore, auditAfter = previous, updated
+			action, entity = "tool_report.priority", "tool_report"
+		}
+		if before.Module == "anschaffung" {
+			previous, err := purchaseFrom(ctx, tx, entryID)
+			if err != nil {
+				return err
+			}
+			updated := previous
+			updated.Entry = after
+			auditBefore, auditAfter = previous, updated
+			action, entity = "purchase.priority", "purchase"
+		}
 		r, err := tx.ExecContext(ctx, "UPDATE entries SET "+column+"=?,updated_at=?,version=? WHERE id=? AND version=?", value, timestamp(after.UpdatedAt), after.Version, entryID, in.Version)
 		if err != nil {
 			return err

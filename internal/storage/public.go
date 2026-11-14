@@ -78,7 +78,7 @@ func (s *Store) PublicComments(ctx context.Context, entryID int64) ([]core.Comme
 	result := make([]core.Comment, 0)
 	err := s.write(ctx, func(tx *sql.Tx) error {
 		var module string
-		err := tx.QueryRowContext(ctx, "SELECT module FROM entries WHERE id=? AND module IN ('basis','idee','aufgabe')", entryID).Scan(&module)
+		err := tx.QueryRowContext(ctx, "SELECT module FROM entries WHERE id=? AND module IN ('basis','idee','aufgabe','werkzeugmeldung','anschaffung')", entryID).Scan(&module)
 		if errors.Is(err, sql.ErrNoRows) {
 			return core.ErrNotFound
 		}
