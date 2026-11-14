@@ -116,7 +116,7 @@ func TestTaskUpgradePreservesMilestoneTwoDataAndForeignKeys(t *testing.T) {
 			t.Fatalf("legacy SQL values changed:\nbefore=%#v\nafter=%#v", before, after)
 		}
 		var count int
-		if err := store.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 5 {
+		if err := store.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 6 {
 			t.Fatalf("migration count=%d, err=%v", count, err)
 		}
 		rows, err := store.db.Query("PRAGMA foreign_key_check")
