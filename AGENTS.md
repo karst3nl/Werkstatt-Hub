@@ -9,6 +9,7 @@ Webapp für eine KFZ-Werkstatt. Sie bündelt:
 3. **Kummerkasten**
 4. **Azubi-Aufgabenboard** mit Erinnerungen
 5. **Verbrauchsmaterialien** mit Bestandsprüfung und Startseiten-Warnung
+6. **Werkstattwartung** mit regelmäßigen Intervallen, Fälligkeiten und Durchführungshistorie gemäß `ERWEITERUNG_Werkstattwartung.md`
 
 Nutzer: Mitarbeiter, Azubis und Vorgesetzte. Sprache der Oberfläche: **Deutsch**.
 
@@ -35,6 +36,7 @@ Nutzer: Mitarbeiter, Azubis und Vorgesetzte. Sprache der Oberfläche: **Deutsch*
 - **Erstellerwahl pro neuem Beitrag:** Beim Erstellen einer Idee, Werkzeugmeldung oder eines Anschaffungswunsches wird ein aktiver Ersteller aus der Namensliste ausdrücklich ausgewählt. Die Auswahl gilt nur für diesen Beitrag, erzeugt keine Sitzung und wechselt keine vorhandene Sitzung. Sie bestimmt Autor, Signatur und Audit-Akteur der Neuanlage.
 - **Aufgabenzuweisung:** Neue Aufgaben benötigen eine aktive Vorgesetzten- oder Admin-Sitzung. Der ausdrücklich gewählte Ersteller muss ebenfalls ein aktiver Vorgesetzter oder Admin sein. Er signiert den Eintrag; Audit-Akteur bleibt der tatsächliche Sitzungsnutzer. Die Erstellerwahl wechselt keine Sitzung.
 - **Werkzeugbestand:** Neue Werkzeuge benötigen wie Aufgaben eine aktive Vorgesetzten- oder Admin-Sitzung und einen ausdrücklich gewählten aktiven Vorgesetzten/Admin als Ersteller. Der gewählte Ersteller signiert; Audit-Akteur bleibt der handelnde Sitzungsnutzer. Bestand, offizieller Zustand und Beschaffungsstatus werden nur von Vorgesetzten/Admins gepflegt.
+- **Werkstattwartung:** Objekte und Historien sind ohne Sitzung lesbar. Durchführungen werden mit ausdrücklich gewähltem aktivem Ersteller erfasst; dessen Signatur und Audit-Akteur werden serverseitig festgelegt, ohne Sitzungswechsel. Abzeichnen benötigt eine Vorgesetzten-/Admin-Sitzung; Objektverwaltung und globale Vorwarnzeit benötigen eine vollständig angemeldete Admin-Sitzung.
 - **Admin-Zugang mit Passwort:** Beim ersten Serverstart wird das Konto „Admin“ automatisch angelegt und ein zufälliges Startpasswort einmalig in der lokalen Serverkonsole ausgegeben. Beim Upgrade erhalten bestehende aktive Admins ohne Passwort ebenfalls einmalig ein Startpasswort. Vor geschützten Aktionen muss ein neues Passwort festgelegt werden; bereits gesetzte Passwörter werden bei Neustarts nicht zurückgesetzt. Es gibt kein universelles Passwort im Repository.
 - **Optionale Namenssitzung:** Mitarbeiter und Vorgesetzte wählen zum Kommentieren, Bewerten und Bearbeiten weiterhin den eigenen Namen aus einer Liste, ohne Passwort. Admins benötigen eine Passwortanmeldung; eine Namensauswahl oder Erstellerwahl gewährt keine Admin-Rechte. Geschützte Aktionen behalten ihre Rollenprüfungen.
 - Den Auth-Teil so kapseln, dass später PIN oder Passwort ergänzt werden kann, ohne den Rest umzubauen.
@@ -48,6 +50,8 @@ Jeder Eintrag (Idee, Werkzeugmeldung, Kummerkasten, Aufgabe, Verbrauchsmaterial-
 - **Zwei Prioritäten**, siehe Abschnitt 6
 
 Keine Anonymität, auch nicht im Kummerkasten (erste Version).
+
+Werkstattwartung verwendet gemäß Erweiterungsbeschreibung eigene Wartungsobjekte und unveränderliche Durchführungseinträge mit Signatur und Audit. Zusätzliche Kommentare und die beiden Prioritäten werden dafür in dieser Stufe nicht eingeführt; maßgeblich sind Intervall, Kalenderfälligkeit und Befund.
 
 ## 6. Prioritätssystem
 - `prio_mitarbeiter`: vom Ersteller bzw. Mitarbeitern auf einer Skala gesetzt.
@@ -87,9 +91,20 @@ Eintrag mit Titel, Text, Kategorie, Status, signiert. Sichtbarkeit und Rechte al
 - Die Warnung muss von einem **Vorgesetzten abgehakt** werden (mit Signatur, im Audit-Log). Erst dann verschwindet sie. Sinkt der Bestand später erneut unter das Minimum, entsteht eine neue Warnung.
 - Optional vorbereiten: Prüfintervalle (z. B. wöchentliche Bestandsprüfung als wiederkehrende Azubi-Aufgabe).
 
+### 7.6 Werkstattwartung (Zusatzmeilenstein)
+- Spezifikation: `ERWEITERUNG_Werkstattwartung.md`. Eigenes Fachpaket `internal/wartung`.
+- Admins pflegen Wartungsobjekte mit Name, Kategorie, Standort, Beschreibung/Hinweisen, Intervall und Vorwarnzeit; Objekte werden deaktiviert statt gelöscht.
+- Intervalle in Tagen, Wochen, Monaten oder Jahren. Die nächste Fälligkeit folgt dem neuesten Datum aus Startwert und Durchführungen plus aktuellem Intervall. Monats-/Jahreswechsel begrenzen ungültige Tage auf das Monatsende; Tagesgrenzen folgen der Werkstatt-Zeitzone.
+- Globale Vorwarnzeit zunächst sieben Kalendertage, vom Admin in der Datenbank einstellbar. Leere Objektvorwarnzeit übernimmt den aktuellen globalen Wert; eigener Wert 0–365 Tage. Heute gilt als bald fällig, ab dem Folgetag als überfällig.
+- Durchführung mit ausdrücklich gewähltem aktivem Nutzer, Datum bis einschließlich heute, optionaler Notiz und Befund. Rückwirkende Nachträge bleiben erhalten und drehen neuere Termine nicht zurück. Der Startwert bleibt nach der Anlage unveränderlich.
+- Vorgesetzte/Admins können Durchführungseinträge einmalig signiert abzeichnen. Die Fälligkeit wird bereits beim Erfassen der Durchführung neu berechnet. Historie und Abzeichnungen sind unveränderlich, auch bei Nutzerumbenennung/-löschung und Objektdeaktivierung.
+- Öffentliche Übersicht/Details mit Filtern und deutschen Datumswerten; Wartungsblock und hervorgehobene Überfälligkeiten oben im Dashboard. Deaktivierte Objekte erzeugen keine Warnungen und erhalten keine neuen Durchführungseinträge.
+- Keine automatische Aufgabenanlage, Foto-Anzeige, Benachrichtigungen oder externen Dienste in dieser Stufe.
+
 ## 8. Startseite (Dashboard)
 - Desktop-Anordnung: Aufgaben links, Werkzeuge und Anschaffungen mittig, Ideen rechts. Auf schmalen Bildschirmen in derselben Reihenfolge untereinander. Generische Basiseinträge entfallen aus Oberfläche und `/entries/*`; vorhandene historische Daten werden nicht gelöscht.
 - Offene Warnungen (Verbrauchsmaterial) ganz oben, mit Abhaken-Funktion für Vorgesetzte.
+- Wartungsblock mit Anzahl bald fälliger/überfälliger aktiver Objekte und Links zur Übersicht; überfällige Wartungen oberhalb der bisherigen Modulspalten hervorheben.
 - Meine Aufgaben und Erinnerungen.
 - Neueste und höchstpriorisierte Einträge pro Bereich.
 
@@ -112,6 +127,8 @@ Eintrag mit Titel, Text, Kategorie, Status, signiert. Sichtbarkeit und Rechte al
 6. Kummerkasten
 7. Admin-Bereich inkl. Foto-Grundlagen
 8. Deployment auf dem Pi (systemd), Backup, Feinschliff
+
+Zusatzmeilenstein **Werkstattwartung** gemäß `ERWEITERUNG_Werkstattwartung.md` auf ausdrücklichen Nutzerwunsch nach Meilenstein 4 vorgezogen. Verbrauchsmaterialien bleiben ein eigenständiger, noch offener Meilenstein 5.
 
 ## 12. Erweiterbarkeit
 Jedes Modul ist ein eigenes Paket mit eigenem Datenmodell, nutzt aber gemeinsam Benutzer-, Prio-, Audit- und Kommentarlogik. Neue Bereiche sollen ohne Umbau des Kerns ergänzbar sein.
@@ -143,4 +160,7 @@ Passwörter oder PIN für Mitarbeiter und Vorgesetzte (Admin-Passwörter sind um
 - Nutzerverwaltung einschließlich Löschung bleibt vollständig Admins vorbehalten. Gelöschte Nutzer werden inaktiv und aus aktuellen Listen entfernt; historische Datensätze, Signaturen und Fremdschlüssel bleiben bestehen. Ein wiederverwendeter Name erhält eine neue Nutzer-ID.
 - Prioritäten werden mit fünf farbigen lokalen Schraubenschlüsseln dargestellt, von Grün bis Rot; unbewertete Stufen bleiben grau. Die Anzeige verändert keine gespeicherten Prioritätswerte.
 - Version 0.4.2 geprüft mit vollständigen Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und einem Chromium-Ablauf bei 320–1440 Pixeln. Migration 005 erhält historische Daten; Admin-Ersteinrichtung, Pflichtwechsel, Sitzungswiderruf, Nutzerlöschung, Prioritätsanzeige und Passwortbestand bei Neustart sind geprüft.
+- **Zusatzmeilenstein Werkstattwartung umgesetzt:** eigenes Datenmodell, zentral berechnete Kalenderfälligkeit, administrative Objekt-/Intervall-/Vorwarnverwaltung, öffentliche Übersicht und unveränderliche Durchführungshistorie mit Abzeichnung sowie Dashboard-Wartungsblock.
+- Migration 006 ergänzt die Wartungstabellen und globalen Standardwerte ohne Änderung bestehender Tabellen/Daten. Alle Wartungsschreibvorgänge werden atomar auditiert; Signaturen, Durchführungshistorie und Abzeichnungen bleiben erhalten. Die Annahmen und Prüfschwerpunkte sind in `README.md` dokumentiert.
+- Version 0.5.0 geprüft mit vollständigen Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und einem Chromium-Ablauf bei 320–1440 Pixeln. Kalendergrenzen, Intervalländerung, rückwirkende Erfassung, Rechte, parallele Abzeichnung, Audit-Rollback aller Wartungsschreibwege, Migration 006 mit Bestandsdaten und mobile Darstellung sind geprüft.
 - **Nächster fachlicher Schritt: Meilenstein 5**, Verbrauchsmaterialien mit Bestandswarnungen und Abhaken durch Vorgesetzte.

@@ -2,6 +2,28 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.5.0 – 2026-11-14
+
+### Hinzugefügt
+
+- Eigenes Modul und öffentlicher Reiter „Werkstattwartung“ mit nach Fälligkeit sortierten Objekten, Kategorie-/Status-/Aktivitätsfiltern und Detailansichten.
+- Admin-Verwaltung für Wartungsobjekte, Intervalle in Tagen/Wochen/Monaten/Jahren, individuelle Vorwarnzeiten, Deaktivierung/Reaktivierung und globale Standardvorwarnzeit.
+- Zentrale Kalenderberechnung mit Begrenzung auf Monatsenden, Schaltjahrbehandlung und Tagesgrenzen in der Werkstatt-Zeitzone.
+- Rückwirkend erfassbare, signierte Wartungsdurchführungen mit Notiz und Befund sowie einmalige Abzeichnung durch Vorgesetzte/Admins; Durchführungshistorie und Abzeichnungen sind unveränderlich.
+- Wartungsblock mit Anzahlen bald fälliger und überfälliger Objekte sowie hervorgehobenen überfälligen Wartungen oberhalb der Dashboard-Spalten.
+- Versionierte Migration 006 mit zusätzlichen Wartungstabellen; bestehende Daten und Migrationen bleiben unverändert.
+- Rechte- und Audit-Regeln für alle Wartungsschreibvorgänge sowie Versionsprüfung für administrative Änderungen.
+
+### Annahmen
+
+- Die Werkstattwartung wird als eigener Zusatzmeilenstein vorgezogen. Verbrauchsmaterialien (Meilenstein 5) bleiben offen.
+- Alle aktiven Nutzer dürfen durchgeführte Wartungen mit ausdrücklicher Erstellerwahl ohne vorherige Sitzung erfassen; die Auswahl erzeugt keine Sitzung oder Verwaltungsrechte.
+- Das neueste Datum aus Startwert und erfassten Durchführungen bestimmt die nächste Fälligkeit. Ältere Nachträge drehen den Termin nicht zurück; zukünftige Durchführungsdaten werden abgewiesen.
+- Ein neuer Durchführungseintrag berechnet die Fälligkeit sofort neu. Die spätere Abzeichnung dokumentiert die Prüfung und ist keine Voraussetzung dafür.
+- Globale Vorwarnzeit zunächst sieben Kalendertage; ein leeres Objektfeld übernimmt den aktuellen globalen Wert. Vorwarnzeit 0 erfasst nur den Fälligkeitstag; überfällig wird ein Objekt am Folgetag.
+- Startdatum nach der Objektanlage unveränderlich. Objekte werden deaktiviert und nicht gelöscht; inaktive Objekte behalten ihre Historie, erhalten keine neuen Durchführungen und erzeugen keine Dashboard-Warnungen.
+- Keine zusätzlichen Prioritäten/Kommentare, Foto-Anhänge, externen Dienste oder automatischen Azubi-Aufgaben in dieser Stufe.
+
 ## 0.4.2 – 2026-11-14
 
 ### Geändert

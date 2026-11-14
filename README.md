@@ -1,6 +1,6 @@
 # Werkstatt-Hub
 
-Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 bis 4 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, passwortgeschützter Admin-Zugang, Rollen, signierte Beiträge mit Kommentaren und Änderungshistorie, Ideenboard mit zwei unabhängigen Prioritäten, ein Aufgabenboard mit Fälligkeiten und Abnahme sowie Werkzeugbestand, Zustandsmeldungen und Anschaffungswünsche. Oberfläche und Fehlermeldungen sind deutsch.
+Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 bis 4 und die Erweiterung **Werkstattwartung** sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, passwortgeschützter Admin-Zugang, Rollen, signierte Beiträge mit Änderungshistorie, Ideenboard mit zwei unabhängigen Prioritäten, Aufgabenboard mit Fälligkeiten und Abnahme, Werkzeugbestand, Zustandsmeldungen und Anschaffungswünsche sowie regelmäßige Wartungen mit unveränderlicher Historie. Oberfläche und Fehlermeldungen sind deutsch.
 
 ## Tech-Stack
 
@@ -37,7 +37,7 @@ go run ./cmd/werkstatt-hub serve --config config.local.json
 | `session_ttl` | Sitzungsdauer als Go-Dauer, Standard `12h`, maximal `168h` |
 | `secure_cookies` | Für lokales HTTP `false`; bei späterem HTTPS `true` |
 | `priority_min`, `priority_max` | Gemeinsame Skala für beide Prioritäten; Standard 1–5, zulässig `1 ≤ Minimum < Maximum ≤ 100` |
-| `timezone` | Werkstatt-Zeitzone für Fälligkeiten, Standard `Europe/Berlin` |
+| `timezone` | Werkstatt-Zeitzone für Aufgaben- und Wartungsfälligkeiten, Standard `Europe/Berlin` |
 | `reminder_days` | Zeitraum für „bald fällig“ in Kalendertagen, Standard `3`, zulässig 1–30 |
 
 ```sh
@@ -124,6 +124,25 @@ Meldungen und Wünsche verwenden die gemeinsame Prioritätsskala, unabhängige M
 
 Die **Historie pro Werkzeug** zeigt ausschließlich zugehörige Änderungen am Werkzeug, verknüpfte Meldungen und Anschaffungswünsche sowie deren Kommentare. Diese Historie ist im Werkstattnetz öffentlich lesbar. Das vollständige Audit-Log mit Benutzerverwaltung und anderen Bereichen bleibt Vorgesetzten und Admins vorbehalten.
 
+## Werkstattwartung
+
+Der Reiter **Werkstattwartung** (`/wartung`) zeigt regelmäßig zu wartende Objekte, nach nächster Fälligkeit sortiert. Übersicht und Details einschließlich Wartungshistorie sind ohne Anmeldung im Werkstattnetz lesbar. Kategorie, Fälligkeitsstatus und aktive/deaktivierte Objekte lassen sich filtern. **In Ordnung**, **Bald fällig** und **Überfällig** werden mit Text und grüner, gelber bzw. roter Kennzeichnung dargestellt. Das Dashboard zeigt darüber einen eigenen Wartungsblock mit den Anzahlen bald fälliger und überfälliger Objekte; überfällige Wartungen erscheinen oberhalb der bisherigen drei Spalten.
+
+**Verwaltung:** Nur ein vollständig angemeldeter Admin legt Wartungsobjekte an (`/admin/wartung/new`), bearbeitet sie, ändert Intervalle und Vorwarnzeiten oder deaktiviert und reaktiviert sie. Name und ein Startdatum der letzten Wartung sind erforderlich; das Formular schlägt heute vor. Die Kategorie startet als „Allgemein“; Beschreibung, Standort und Wartungshinweise/Checkliste sind optional. Das Intervall besteht aus einem Wert von 1 bis 1000 und der Einheit Tage, Wochen, Monate oder Jahre; die berechnete Fälligkeit muss innerhalb der Jahre 1 bis 9999 liegen. Änderungen werden mit bisherigem/neuem Stand und handelndem Admin auditiert. Versionsprüfungen verhindern das Überschreiben zwischenzeitlicher Änderungen.
+
+**Wartung durchgeführt:** Für ein aktives Objekt können alle aktiven Nutzer eine Durchführung mit Datum, optionaler Notiz und optionalem Befund **In Ordnung** oder **Mangel festgestellt** eintragen. Ohne Auswahl bleibt „Kein Befund angegeben“ erhalten. Der durchführende Nutzer wird bei jedem Eintrag ausdrücklich aus der Namensliste gewählt, auch wenn bereits eine Sitzung besteht. Eine vorherige Anmeldung ist dafür nicht erforderlich. Die Auswahl bestimmt Autor, Signatur und Audit-Akteur, ohne eine Sitzung zu erzeugen oder zu wechseln. Das tatsächliche Durchführungsdatum darf rückwirkend, aber nicht in der Zukunft liegen. Davon getrennt werden Name und Zeitpunkt der Erfassung unveränderlich signiert. Vorgesetzte und Admins können einen vorhandenen Eintrag aus ihrer Sitzung einmalig abzeichnen; auch diese Signatur bleibt erhalten. Eine Abzeichnung der eigenen Durchführung ist für diese Rollen erlaubt.
+
+Für die Fälligkeitslogik und Historie gelten folgende Annahmen:
+
+- Ausgangspunkt ist das **neueste** Datum aus dem beim Anlegen gesetzten Startdatum und allen erfassten Durchführungen. Ein nachträglich erfasster älterer Eintrag ergänzt die Historie, dreht den Termin aber nicht zurück. Das Startdatum bleibt nach der Anlage unveränderlich; weitere Durchführungen werden als neue Historieneinträge erfasst.
+- Nächste Fälligkeit ist dieses Datum plus das aktuell eingestellte Intervall. Die Berechnung zählt Kalendertage bzw. Kalenderwochen, keine festen 24-Stunden-Zeiträume. Bei Monaten und Jahren wird ein nicht vorhandener Tag auf das Monatsende begrenzt: 31.01. + ein Monat ergibt 28.02. bzw. 29.02.; 29.02. + ein Jahr ergibt 28.02. Das Intervall beginnt mit der tatsächlichen Durchführung neu.
+- Eine erfasste Wartung verändert die Fälligkeit **sofort**. Das spätere Abzeichnen dokumentiert die Prüfung und verzögert die Neuberechnung nicht. Auch ein Befund „Mangel festgestellt“ bleibt als Befund erhalten, erzeugt aber keine automatische Aufgabe oder Werkzeugmeldung.
+- Die globale Vorwarnzeit beträgt zunächst **sieben Kalendertage** und wird vom Admin unter `/admin/wartung/settings` in der Datenbank eingestellt, getrennt von `reminder_days` für Aufgaben. Ein leeres Vorwarnfeld am Objekt übernimmt den jeweils aktuellen globalen Wert; ein eigener Wert von 0 bis 365 Tagen überschreibt ihn.
+- „Bald fällig“ umfasst heute bis einschließlich des letzten Vorwarntages. Mit Vorwarnzeit 0 erscheint nur das heute fällige Objekt als „Bald fällig“. „Überfällig“ beginnt am folgenden Werkstatttag. Tagesgrenzen verwenden `timezone`, standardmäßig **Europe/Berlin**, einschließlich Sommer-/Winterzeitwechseln. Angezeigte Datumswerte haben das Format **TT.MM.JJJJ**; Erfassungs- und Audit-Zeitpunkte bleiben UTC.
+- Wartungseinträge und Abzeichnungen werden weder bearbeitet noch gelöscht. Objekte werden nur deaktiviert; ihre Historie bleibt sichtbar und weiterhin abzeichenbar. Deaktivierte Objekte nehmen keine neuen Durchführungen an und erzeugen keine Dashboard-Warnungen. Bei Reaktivierung wird die Fälligkeit aus den erhaltenen Daten berechnet.
+
+Die Erweiterung hat ein eigenes Paket `internal/wartung` und verwendet die gemeinsamen Nutzer-, Rollen-, Signatur- und Audit-Regeln. Prioritäten und Kommentare werden für diese Wartungshistorie nicht zusätzlich eingeführt. Foto-Anhänge, Benachrichtigungen, Kosten, externe Dienstleister und automatisch erzeugte Azubi-Aufgaben gehören nicht zu dieser Stufe. Alle Funktionen und Assets bleiben lokal; eine Hintergrundplanung oder ein externer Dienst wird für die berechneten Warnungen nicht benötigt.
+
 ## Rechte und weitere Annahmen
 
 Lesen sowie die Neuanlage von Ideen, Werkzeugmeldungen und Anschaffungswünschen mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für weitere Aktionen gelten in einer aktiven Sitzung (bei Admins nach Passwortanmeldung und Pflichtwechsel) folgende Rechte; die ersten Status- und Textregeln beziehen sich auf Ideen:
@@ -141,6 +160,9 @@ Lesen sowie die Neuanlage von Ideen, Werkzeugmeldungen und Anschaffungswünschen
 | Werkzeugbestand und offiziellen Zustand pflegen | Nein | Ja | Ja |
 | Werkzeugmeldungen ändern | Eigene Texte und Beobachtung | Alle, einschließlich Status | Alle, einschließlich Status |
 | Anschaffungswünsche ändern | Eigene, solange „Gewünscht“ | Alle, einschließlich Status | Alle, einschließlich Status |
+| Wartungsobjekte, Intervalle und Vorwarnzeiten verwalten | Nein | Nein | Ja |
+| Durchgeführte Wartung mit ausdrücklicher Erstellerwahl erfassen | Ja | Ja | Ja |
+| Wartungseinträge abzeichnen | Nein | Ja | Ja |
 | Vollständiges Audit-Log ansehen | Nein | Ja | Ja |
 | Benutzer anlegen, ändern, deaktivieren, löschen und Rollen setzen | Nein | Nein | Ja, nach Passwortwechsel |
 
@@ -151,11 +173,11 @@ Lesen sowie die Neuanlage von Ideen, Werkzeugmeldungen und Anschaffungswünschen
 - Änderungen an Einträgen, Kommentare und Benutzerverwaltung werden atomar mit dem Audit-Ereignis gespeichert: Akteur als ID und damaliger Name, Serverzeit, Aktion und vollständiger vorheriger/neuer Zustand. Bei einem Audit-Fehler wird die gesamte Änderung zurückgerollt. Parallele Eintragsbearbeitungen erkennen veraltete Versionen und überschreiben diese nicht.
 - Das Audit-Log ist über App und Datenbank-Trigger nur erweiterbar. Die gemeinsame Anwendungsschicht schützt alle Schreibvorgänge; direkter Zugriff auf die SQLite-Datei gehört zum vertrauenswürdigen Betrieb und ist kein unterstützter Schreibweg.
 - Eine aktive Admin-Person muss erhalten bleiben. Der letzte aktive Admin kann weder gelöscht, deaktiviert noch heruntergestuft werden.
-- Ideen, Aufgaben, Werkzeuge, Meldungen und Anschaffungswünsche einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Material- und Kummerkastenmodule folgen noch. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
+- Ideen, Aufgaben, Werkzeuge, Meldungen und Anschaffungswünsche einschließlich Kommentaren sowie Wartungsobjekte und Wartungshistorien sind ohne Anmeldung im Werkstattnetz sichtbar. Material- und Kummerkastenmodule folgen noch. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
 
 ## Bestehende Installation aktualisieren
 
-Bei einem Update einer bestehenden Installation zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Fehlende versionierte Migrationen werden beim Start automatisch angewendet. Die neue Migration **005** ergänzt Admin-Zugangsdaten sowie Lösch- und Sitzungsversionen für Nutzer. Bestehende IDs, Basis- und Fachbeiträge, Aufgabenabnahmen, Kommentare, Prioritäten, Signaturen und Audit-Daten bleiben erhalten; bisherige Migrationen werden nicht verändert. Bereits vorhandene aktive Admins ohne Passwort erhalten beim ersten anschließenden Serverstart jeweils ein einmaliges Startpasswort in der lokalen Konsole und müssen es ändern. Bereits gesetzte Admin-Passwörter werden nicht zurückgesetzt. Neue Konfigurationswerte sind dafür nicht nötig. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
+Bei einem Update einer bestehenden Installation zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Fehlende versionierte Migrationen werden beim Start automatisch angewendet. Die neue Migration **006** ergänzt Wartungsobjekte, Durchführungshistorie, Abzeichnungen und die globale Vorwarnzeit. Bestehende Tabellen und ihre Daten werden dafür nicht verändert. IDs, Basis- und Fachbeiträge, Aufgabenabnahmen, Kommentare, Prioritäten, Signaturen, Admin-Zugangsdaten und Audit-Daten bleiben erhalten; bisherige Migrationen bleiben unverändert. Bei älteren Installationen wird auch Migration 005 für Admin-Zugangsdaten sowie Lösch- und Sitzungsversionen angewendet: Bereits vorhandene aktive Admins ohne Passwort erhalten beim ersten anschließenden Serverstart jeweils ein einmaliges Startpasswort in der lokalen Konsole und müssen es ändern. Bereits gesetzte Admin-Passwörter werden nicht zurückgesetzt. Neue Konfigurationswerte sind für die Werkstattwartung nicht nötig. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
 
 ## Datenbank und Entwicklung
 
@@ -177,6 +199,7 @@ internal/auth/                 Passwortprüfung und Erzeugung von Startpasswört
 internal/ideas/                Eigenes Ideenmodell und Statusregeln
 internal/tasks/                Aufgaben, Statusrechte und Kalender-Erinnerungen
 internal/tooling/              Werkzeugbestand, Zustandsmeldungen und Anschaffung
+internal/wartung/              Wartungsobjekte, Kalenderfälligkeiten und Rechte
 internal/storage/              SQLite, Transaktionen und Audit-Log
 internal/storage/migrations/   Versioniertes Schema
 internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
@@ -184,6 +207,8 @@ internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
 
 Tests verwenden ausschließlich temporäre Verzeichnisse. Datenbanken, Uploads, Sicherungen, Logs, lokale Konfiguration und Geheimnisse dürfen nicht versioniert werden; `.gitignore` schützt die üblichen Pfade und Dateiformate. Beispielkonfiguration enthält ausschließlich lokale Standardwerte. Änderungen ausschließlich auf Branch `alpha`, in kleinen thematischen Commits; niemals direkt auf `main` pushen.
 
-Ideenboard, Aufgabenboard und Werkzeugverwaltung sind eigene Fachpakete und nutzen die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgen Verbrauchsmaterialien mit Bestandswarnungen und Abhaken (Meilenstein 5), danach Kummerkasten, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
+Ideenboard, Aufgabenboard, Werkzeugverwaltung und Werkstattwartung sind eigene Fachpakete und nutzen die gemeinsame Benutzer-, Signatur- und Audit-Basis. Die Werkstattwartung ist der auf Wunsch vorgezogene Zusatzmeilenstein gemäß `ERWEITERUNG_Werkstattwartung.md`. Verbrauchsmaterialien mit Bestandswarnungen und Abhaken (Meilenstein 5) bleiben offen; danach folgen Kummerkasten, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
 
-Version **0.4.2** wurde mit vollständigen Race-Tests, `go vet` und Builds ohne CGO für AMD64 und ARM64 geprüft. Der Chromium-Ablauf bei 320–1440 Pixeln bestätigt die automatische Admin-Einrichtung, den verpflichtenden Passwortwechsel, Sitzungswiderruf sowie ausschließlich administrative Nutzerverwaltung und Löschung mit erhaltenen historischen Signaturen. Entfernte Basisrouten und fünf zugängliche Schraubenschlüsselsymbole für alle Prioritätsstufen wurden ebenfalls geprüft. Migration 005 erhält die bestehenden Daten einschließlich Aufgabenabnahmen und Audit-Historie; ein anschließender Neustart erhält das gesetzte Passwort und erzeugt kein weiteres Startpasswort. Noch kein Lauf auf echter Pi-Hardware.
+Version **0.5.0** wurde mit vollständigen Race-Tests, `go vet` und Builds ohne CGO für AMD64 und ARM64 geprüft. Fachtests decken Kalenderfälligkeiten mit Monatsenden, Schaltjahren und Zeitzonengrenzen, inklusive Vorwarnzeiten, Intervalländerungen, rückwirkende Einträge ohne Datumsrücksprung, Rechte, Versionskonflikte, unveränderliche Historie und konkurrierende Abzeichnungen ab. Audit-Fehler rollen alle fünf Wartungsschreibwege vollständig zurück. Migration 006 und erneutes Öffnen erhalten sämtliche bisherigen Tabellenwerte einschließlich Admin-Zugangsdaten, Aufgabenabnahmen und Audit-Historie.
+
+Der vollständige Chromium-Ablauf bei 320–1440 Pixeln bestätigt Admin-Verwaltung, globale und individuelle Vorwarnzeit, Erstellerwahl, Datumsprüfung, rückwirkende Wartung, Abzeichnung, historische Signaturen nach Nutzerumbenennung/-löschung sowie Deaktivierung, Filter und Dashboard. Die drei bisherigen Dashboard-Spalten bleiben erhalten; es gibt keine horizontalen Überläufe oder externen Anfragen. Auch die gemeinsame Transportgrenze für zwei gültige Unicode-Langtexte wurde geprüft. Noch kein Lauf auf echter Pi-Hardware.
