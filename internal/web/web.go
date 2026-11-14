@@ -58,6 +58,7 @@ type app struct {
 }
 
 type page struct {
+	Dashboard            bool
 	ReportMode           bool
 	PurchaseMode         bool
 	Tool                 tooling.Tool
@@ -671,7 +672,7 @@ func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
 			purchasePreview = append(purchasePreview, purchase)
 		}
 	}
-	a.render(w, r, "home", page{Title: "Dashboard", Current: &u, Entries: entries, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews, DashboardTools: attention, ToolAttentionCount: attentionCount, DashboardPurchases: purchasePreview})
+	a.render(w, r, "home", page{Title: "Dashboard", Dashboard: true, Current: &u, Entries: entries, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews, DashboardTools: attention, ToolAttentionCount: attentionCount, DashboardPurchases: purchasePreview})
 }
 
 func (a *app) newEntry(w http.ResponseWriter, r *http.Request, u core.User) {

@@ -2,6 +2,14 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.4.1 – 2026-11-14
+
+### Geändert
+
+- Dashboard zeigt Aufgaben, Werkzeuge/Anschaffungen und Ideen auf breiten Bildschirmen in drei Spalten von links nach rechts.
+- Auf schmalen Bildschirmen bleiben die Bereiche in derselben Reihenfolge untereinander lesbar; Basiseinträge folgen unterhalb.
+- Die breitere Dashboardansicht und die Anpassung der Karten gelten nur für die Startseite.
+
 ## 0.4.0 – 2026-11-14
 
 ### Hinzugefügt

@@ -2,7 +2,7 @@
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Title}} · Werkstatt-Hub</title><link rel="stylesheet" href="/assets/style.css"></head>
 <body><a class="skip" href="#content">Zum Inhalt</a><header class="bar"><a class="brand" href="/">WERKSTATT<span>HUB</span></a>
 <nav aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/ideas">Ideenboard</a><a href="/tasks">Aufgaben</a><a href="/tools">Werkzeuge</a>{{if .Current}}{{if manager .Current}}<a href="/audit">Protokoll</a>{{end}}{{if admin .Current}}<a href="/admin/users">Benutzer</a>{{end}}{{end}}</nav><div class="account">{{if .Current}}<span>{{.Current.Name}} <small>{{role .Current.Role}}</small></span><form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="quiet" type="submit">Abmelden</button></form>{{else}}<a href="/login">Namen wählen</a><a href="/admin/login">Admin</a>{{end}}</div></header>
-<main id="content">{{end}}
+<main id="content"{{if .Dashboard}} class="dashboard"{{end}}>{{end}}
 
 {{define "footer"}}</main><footer class="footer">Werkstatt-Hub · Lokal in der Werkstatt · Signaturzeiten in UTC · Fälligkeiten in {{.WorkshopTimezone}}</footer></body></html>{{end}}
 
@@ -24,9 +24,11 @@
 
 {{define "home"}}{{template "header" .}}
 <div class="heading"><div><p class="eyebrow">Gemeinsam den Überblick behalten</p><h1>Werkstatt-Dashboard</h1><p class="muted">Meldungen teilen und Ideen für den Arbeitsablauf sammeln.</p></div><a class="button" href="/entries/new">+ Neuer Eintrag</a></div>
-{{template "dashboard-tasks" .}}
-{{template "dashboard-tooling" .}}
-<section aria-label="Ideenboard"><div class="heading"><h2>Neueste Ideen</h2><a href="/ideas">Ideenboard öffnen →</a></div>{{if .Ideas}}<div class="entries">{{range .Ideas}}{{template "idea-card" .}}{{end}}</div>{{else}}<p class="card">Noch keine Ideen vorhanden. <a href="/ideas/new">Die erste Idee vorschlagen</a></p>{{end}}</section>
+<div class="dashboard-columns">
+<div class="dashboard-column dashboard-column-tasks">{{template "dashboard-tasks" .}}</div>
+<div class="dashboard-column dashboard-column-tools">{{template "dashboard-tooling" .}}</div>
+<div class="dashboard-column dashboard-column-ideas"><section aria-label="Ideenboard"><div class="heading"><h2>Neueste Ideen</h2><a href="/ideas">Ideenboard öffnen →</a></div>{{if .Ideas}}<div class="entries">{{range .Ideas}}{{template "idea-card" .}}{{end}}</div>{{else}}<p class="card">Noch keine Ideen vorhanden. <a href="/ideas/new">Die erste Idee vorschlagen</a></p>{{end}}</section></div>
+</div>
 <h2 class="section-title">Basiseinträge</h2>{{if .Entries}}<div class="entries">{{range .Entries}}<article class="card entry-card"><div class="row"><span class="badge">{{status .Status}}</span><span class="muted">#{{.ID}}</span></div><h2><a href="/entries/{{.ID}}">{{.Title}}</a></h2><p class="preview">{{.Body}}</p>{{template "priority-summary" .}}<div class="signature">{{.Signature.Name}}<br><time>{{date .Signature.At}}</time></div></article>{{end}}</div>{{else}}<section class="card empty"><h2>Hier beginnt der Austausch.</h2><p>Noch keine Einträge vorhanden. Lege den ersten Eintrag für deine Werkstatt an.</p><a href="/entries/new">Eintrag erstellen →</a></section>{{end}}
 {{template "footer" .}}{{end}}
 

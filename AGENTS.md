@@ -86,6 +86,7 @@ Eintrag mit Titel, Text, Kategorie, Status, signiert. Sichtbarkeit und Rechte al
 - Optional vorbereiten: Prüfintervalle (z. B. wöchentliche Bestandsprüfung als wiederkehrende Azubi-Aufgabe).
 
 ## 8. Startseite (Dashboard)
+- Desktop-Anordnung: Aufgaben links, Werkzeuge und Anschaffungen mittig, Ideen rechts. Auf schmalen Bildschirmen in derselben Reihenfolge untereinander; Basiseinträge darunter.
 - Offene Warnungen (Verbrauchsmaterial) ganz oben, mit Abhaken-Funktion für Vorgesetzte.
 - Meine Aufgaben und Erinnerungen.
 - Neueste und höchstpriorisierte Einträge pro Bereich.

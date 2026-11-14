@@ -53,7 +53,7 @@ Für ein späteres Deployment werden nur das passende Binary, eine lokale Konfig
 
 ## Dashboard und Erstellerwahl
 
-Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Basiseinträge, Ideenboard, Aufgabenboard, Werkzeugbestand, Zustandsmeldungen, Anschaffungswünsche, deren Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
+Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Auf breiten Bildschirmen stehen Aufgaben links, Werkzeuge und Anschaffungen in der Mitte und Ideen rechts nebeneinander. Auf schmalen Bildschirmen folgen diese Bereiche in derselben Reihenfolge untereinander; Basiseinträge stehen darunter. Basiseinträge, Ideenboard, Aufgabenboard, Werkzeugbestand, Zustandsmeldungen, Anschaffungswünsche, deren Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
 
 Bei **jedem neuen Basiseintrag, jeder Idee, jeder Werkzeugmeldung und jedem Anschaffungswunsch** ist im Formular ein aktiver **Ersteller** aus der Namensliste auszuwählen. Die Auswahl beginnt leer, auch bei einer bestehenden Sitzung. Name, Autor-ID und Signaturzeit werden serverseitig aus diesem Nutzer und der aktuellen Uhrzeit erzeugt. Freie Signatur- oder Zeitangaben aus dem Browser werden nicht übernommen. Fehlende, unbekannte und deaktivierte Ersteller werden abgewiesen.
 
