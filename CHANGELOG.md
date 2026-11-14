@@ -2,6 +2,23 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.2.0 – 2026-11-14
+
+### Hinzugefügt
+
+- Ideenboard als eigenes Fachmodul mit Kategorien, signierten Kommentaren und Status bis „umgesetzt“.
+- Zwei unabhängig gepflegte Prioritäten für Ideen und Basiseinträge, einschließlich Löschen, Rollenprüfung und atomarem Audit-Verlauf.
+- Gemeinsame konfigurierbare Prioritätsskala (Standard 1–5); unzulässige Skalen und Ausschluss bestehender Werte werden abgewiesen.
+- Kombinierbare Kategorie-, Status- und Prioritätsfilter, Sortierung nach beiden Prioritäten und sichtbare Kennzeichnung starker Abweichungen.
+- Ideenübersicht auf der Startseite sowie lokale, responsive Formulare für Board und Prioritäten.
+- Versionierte Migration 002 unter Erhalt vorhandener IDs, Signaturen, Kommentare und Audit-Einträge.
+- Tests für neue Rechte, Prioritäten, Audit-Rollback, Konflikte, Filter/Sortierung und das Update von Meilenstein 1.
+
+### Annahmen
+
+- Kategorien sind zunächst frei benannte Pflichtfelder; zentrale Verwaltung folgt mit Meilenstein 7.
+- Mitarbeiter-Priorität ist ein gemeinsamer Wert für Mitarbeiter und den jeweiligen Ersteller, keine Abstimmung. Vorgesetzte und Admins bearbeiten die getrennte Vorgesetzten-Priorität.
+
 ## 0.1.0 – 2026-11-14
 
 ### Hinzugefügt

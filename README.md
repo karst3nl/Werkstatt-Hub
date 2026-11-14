@@ -1,6 +1,6 @@
 # Werkstatt-Hub
 
-Lokale Webapp für eine KFZ-Werkstatt. Meilenstein 1 stellt die gemeinsame Basis bereit: Nutzerauswahl, Rollen, signierte Basiseinträge mit Kommentaren und nachvollziehbare Änderungshistorie. Oberfläche und Fehlermeldungen sind deutsch.
+Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 und 2 sind umgesetzt: Nutzerauswahl, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie sowie ein Ideenboard mit zwei unabhängigen Prioritäten. Oberfläche und Fehlermeldungen sind deutsch.
 
 ## Tech-Stack
 
@@ -38,6 +38,7 @@ go run ./cmd/werkstatt-hub serve --config config.local.json
 | `database` | Pfad zur lokalen SQLite-Datei |
 | `session_ttl` | Sitzungsdauer als Go-Dauer, Standard `12h`, maximal `168h` |
 | `secure_cookies` | Für lokales HTTP `false`; bei späterem HTTPS `true` |
+| `priority_min`, `priority_max` | Gemeinsame Skala für beide Prioritäten; Standard 1–5, zulässig `1 ≤ Minimum < Maximum ≤ 100` |
 
 ```sh
 CGO_ENABLED=0 go build -o bin/werkstatt-hub ./cmd/werkstatt-hub
@@ -48,15 +49,34 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/werkstatt-hub-linux-arm64 
 
 Für ein späteres Deployment werden nur das passende Binary, eine lokale Konfiguration und ein beschreibbares Datenverzeichnis benötigt. Auf dem Pi einen festen Arbeitsordner oder absolute Datenbankpfade verwenden. Das Programm beendet HTTP-Verbindungen bei SIGINT/SIGTERM geordnet. systemd-Service und automatisierte lokale/NAS-Backups folgen in Meilenstein 8. Bis dahin zum Sichern die App stoppen und das vollständige Datenverzeichnis kopieren.
 
-## Rechte und Annahmen für Meilenstein 1
+## Ideenboard und Prioritäten
+
+Über **Ideenboard** (`/ideas`) neue Ideen mit Titel, Beschreibung und Kategorie vorschlagen. Kategorien sind vorerst frei benannte Pflichtfelder mit höchstens 100 Zeichen; bereits verwendete Kategorien werden vorgeschlagen. Der Startwert im Formular ist „Allgemein“. Eine zentrale Kategorienverwaltung folgt in Meilenstein 7.
+
+Eine Idee beginnt als **Neu**. Vorgesetzte und Admins können den Status auf **In Prüfung**, **Geplant**, **Umgesetzt** oder **Abgelehnt** setzen. Autor und ursprüngliche Signatur bleiben erhalten. Titel, Beschreibung, Kategorie, Status und Prioritäten verwenden dieselbe Versionsprüfung, damit veraltete Formulare keine inzwischen erfolgte Änderung überschreiben.
+
+Beide Prioritäten sind für alle aktiven Nutzer sichtbar und haben dieselbe konfigurierbare Skala. Größere Zahlen bedeuten höhere Priorität. Die Werte können auch bei den bisherigen Basiseinträgen gesetzt werden:
+
+- **Mitarbeiter-Priorität:** Mitarbeiter dürfen sie bei allen Einträgen setzen. Der jeweilige Ersteller darf sie unabhängig von seiner Rolle bei eigenen Einträgen setzen. Vorgesetzte und Admins dürfen den Mitarbeiterwert anderer Ersteller nicht überschreiben.
+- **Vorgesetzten-Priorität:** Vorgesetzte und Admins dürfen sie bei allen Einträgen setzen.
+- Das sind zwei **gemeinsam gepflegte Werte**, keine Abstimmung pro Nutzer. Ein berechtigter Nutzer kann den jeweiligen Wert ersetzen oder mit „Noch nicht gesetzt“ löschen. Eine tatsächliche Änderung erhöht die Version und speichert Akteur, Zeitpunkt und vorherigen/neuen Stand atomar im Audit-Log. Unverändertes Speichern erzeugt keinen zusätzlichen Audit-Eintrag.
+- Eine **starke Abweichung** wird als Symbol und Text markiert, sobald beide Werte gesetzt sind und ihre Differenz mindestens `(Maximum − Minimum) / 2 + 1` beträgt (ganzzahlig abgerundet vor `+ 1`). Bei der Standardskala 1–5 sind das mindestens drei Stufen.
+
+Das Board filtert nach Kategorie, Status, beiden Prioritäten (auch „Noch nicht gesetzt“) und starken Abweichungen. Alle gesetzten Filter werden kombiniert. Sortierung nach Mitarbeiter- oder Vorgesetzten-Priorität ist absteigend; unbewertete Ideen stehen am Ende. Bei Gleichstand erscheinen neuere Ideen zuerst.
+
+Die Skala wird über `priority_min` und `priority_max` in der lokalen JSON-Konfiguration geändert. Die App dazu neu starten. Fehlen diese Angaben in einer bisherigen Konfiguration, gilt weiterhin 1–5. Eine Skala, die bereits gespeicherte Werte ausschließt, führt zu einem verständlichen Startfehler; bestehende Werte werden nicht umgerechnet oder gelöscht.
+
+## Rechte und weitere Annahmen
 
 Die AGENTS.md beschreibt die Rollen, aber noch keine vollständige Rechtematrix. Deshalb gelten diese einfachen Annahmen:
 
 | Aktion | Mitarbeiter (inkl. Azubi) | Vorgesetzter | Admin |
 | --- | --- | --- | --- |
 | Basiseinträge lesen, erstellen und kommentieren | Ja | Ja | Ja |
-| Titel und Text ändern | Eigene Einträge | Alle | Alle |
+| Titel, Text und Ideenkategorie ändern | Eigene Einträge | Alle | Alle |
 | Status ändern | Nein | Ja | Ja |
+| Mitarbeiter-Priorität setzen/löschen | Alle Einträge | Eigene Einträge | Eigene Einträge |
+| Vorgesetzten-Priorität setzen/löschen | Nein | Alle Einträge | Alle Einträge |
 | Audit-Log ansehen | Nein | Ja | Ja |
 | Benutzer anlegen, umbenennen, deaktivieren, Rollen setzen | Nein | Nein | Ja |
 
@@ -67,7 +87,11 @@ Die AGENTS.md beschreibt die Rollen, aber noch keine vollständige Rechtematrix.
 - Änderungen an Einträgen, Kommentare und Benutzerverwaltung werden atomar mit dem Audit-Ereignis gespeichert: Akteur als ID und damaliger Name, Serverzeit, Aktion und vollständiger vorheriger/neuer Zustand. Bei einem Audit-Fehler wird die gesamte Änderung zurückgerollt. Parallele Eintragsbearbeitungen erkennen veraltete Versionen und überschreiben diese nicht.
 - Das Audit-Log ist über App und Datenbank-Trigger nur erweiterbar. Die gemeinsame Anwendungsschicht schützt alle Schreibvorgänge; direkter Zugriff auf die SQLite-Datei gehört zum vertrauenswürdigen Betrieb und ist kein unterstützter Schreibweg.
 - Eine aktive Admin-Person muss erhalten bleiben. Der letzte aktive Admin kann weder deaktiviert noch heruntergestuft werden.
-- Es gibt noch keinen Kummerkasten und keine anderen Fachmodule. Generische Basiseinträge sind für alle aktiven Nutzer sichtbar. Die beiden Prioritätsfelder (1–5, zunächst leer) sind im Modell vorbereitet; Setzen, Sortieren und Prio-Historie folgen in Meilenstein 2. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
+- Ideen und generische Basiseinträge sind für alle aktiven Nutzer sichtbar. Es gibt noch keinen Kummerkasten und keine weiteren Fachmodule. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
+
+## Bestehende Installation aktualisieren
+
+Bei einem Update von Meilenstein 1 zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Die neue versionierte Migration `002_ideas_priorities.sql` wird beim Start automatisch angewendet. IDs, Nutzer, Signaturen, Kommentare und Audit-Historie der bisherigen Einträge bleiben erhalten. Migration 001 wird nicht verändert. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
 
 ## Datenbank und Entwicklung
 
@@ -84,7 +108,8 @@ Versionierte SQL-Migrationen liegen in `internal/storage/migrations/` und werden
 ```text
 cmd/werkstatt-hub/              Start, einmalige Admin-Einrichtung, Migrationen
 internal/config/               Lokale JSON-Konfiguration
-internal/core/                 Gemeinsame Modelle und Rechte
+internal/core/                 Gemeinsame Modelle, Rechte und Prioritätsskala
+internal/ideas/                Eigenes Ideenmodell und Statusregeln
 internal/storage/              SQLite, Transaktionen und Audit-Log
 internal/storage/migrations/   Versioniertes Schema
 internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
@@ -92,6 +117,6 @@ internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
 
 Tests verwenden ausschließlich temporäre Verzeichnisse. Datenbanken, Uploads, Sicherungen, Logs, lokale Konfiguration und Geheimnisse dürfen nicht versioniert werden; `.gitignore` schützt die üblichen Pfade und Dateiformate. Beispielkonfiguration enthält ausschließlich lokale Standardwerte. Änderungen ausschließlich auf Branch `alpha`, in kleinen thematischen Commits; niemals direkt auf `main` pushen.
 
-Die Fachmodule bleiben getrennte spätere Pakete und nutzen die gemeinsame Benutzer-, Signatur-, Kommentar- und Audit-Basis. Ideenboard/Prioritäten, Azubi-Aufgaben, Werkzeuge, Materialien, Kummerkasten, erweiterte Administration/Uploads und Pi-Betrieb folgen gemäß `AGENTS.md`.
+Das Ideenboard ist das erste eigene Fachpaket und nutzt die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgen die Azubi-Aufgaben mit Erinnerungen (Meilenstein 3), danach die weiteren Fachmodule, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
 
-Validiert für Version 0.1.0: `go test -race ./...`, `go vet ./...`, ein vollständiger Chromium-Ablauf (Admin-Einrichtung, Nutzer, Einträge, Kommentare, Status, Audit, Deaktivierung) bei 1360 und 390 Pixeln sowie ein Build für Linux/ARM64 ohne CGO. Der Browserablauf lädt ausschließlich lokale Ressourcen. Getestete Toolchain: Go 1.27.4; der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.
+Die Tests decken Rechte, Audit-Rollback, unveränderliche Signaturen, Migration bestehender Meilenstein-1-Daten, konfigurierbare Prioritäten, Filter/Sortierung und Konflikte bei parallelen Bearbeitungen ab. Für Version 0.2.0 sind `go test -race ./...`, `go vet ./...` sowie Builds ohne CGO für Linux/AMD64 und Linux/ARM64 erfolgreich. Der vollständige Chromium-Ablauf prüft Ideen, Kommentare, Status, beide Prioritäten, Filter, Sortierung und Audit bei 320, 390, 768 und 1360 Pixeln; alle geladenen Ressourcen bleiben lokal. Zusätzlich wurde eine bestehende Meilenstein-1-Testdatenbank aktualisiert und der unveränderte Inhalt von Nutzern, Einträgen, Kommentaren und Audit-Log verglichen. Getestete Toolchain: Go 1.27.4. Der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.

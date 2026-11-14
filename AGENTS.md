@@ -117,4 +117,7 @@ Passwörter oder PIN, Benachrichtigungen (Mail/Push), Foto-Anzeige in der Oberfl
 - Die grundlegende Benutzerverwaltung dient bereits dem Einrichten und Prüfen der Rollen. Stammdaten und Foto-Grundlagen bleiben Meilenstein 7.
 - Rechtematrix, Betriebsannahmen, Startanleitung und Grenzen sind in `README.md` dokumentiert. Keine Beispieldaten werden mitgeliefert.
 - Rechte-, Audit-, Migrations- und HTTP-Tests vorhanden. Go-Race-Tests, `go vet`, Browserablauf auf Desktop/Mobil und ARM64-Build geprüft; noch kein Lauf auf echter Pi-Hardware.
-- **Nächster fachlicher Schritt: Meilenstein 2**, Prioritätssystem und Ideenboard. Die zwei Prioritätsfelder sind bisher nur vorbereitet.
+- **Meilenstein 2 umgesetzt:** eigenes Ideenmodell mit Kategorie und Status bis „umgesetzt“, gemeinsames Prioritätssystem mit konfigurierbarer Skala, Filtern/Sortieren und sichtbarer starker Abweichung. Prioritätsänderungen sind versioniert und atomar auditiert.
+- Migration 002 erhält bestehende Meilenstein-1-Daten. Kategorien sind zunächst freie Pflichttexte; die genaue Rechtematrix und gemeinsame Werte ohne Abstimmung sind in `README.md` dokumentiert.
+- Meilenstein-2-Rechte, Prioritätsänderungen, Filter/Sortierung, Audit-Rollback und Migration mit Bestandsdaten getestet. Race-Tests, `go vet`, Chromium-Ablauf bei 320–1360 Pixeln und ARM64-Build erfolgreich.
+- **Nächster fachlicher Schritt: Meilenstein 3**, Azubi-Aufgabenboard mit Erinnerungen.
