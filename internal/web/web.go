@@ -24,6 +24,7 @@ import (
 	"werkstatt-hub/internal/storage"
 	"werkstatt-hub/internal/tasks"
 	"werkstatt-hub/internal/tooling"
+	"werkstatt-hub/internal/wartung"
 )
 
 //go:embed templates/*.html assets/*
@@ -61,6 +62,16 @@ type app struct {
 }
 
 type page struct {
+	Wartung              wartungCard
+	WartungObjects       []wartungCard
+	WartungRecords       []wartung.Record
+	WartungFilter        wartung.Filter
+	WartungSettings      wartung.Settings
+	WartungToday         string
+	WartungWarningValue  string
+	WartungOverdue       []wartungCard
+	WartungOverdueCount  int
+	WartungSoonCount     int
 	Error                string
 	PasswordRequired     bool
 	Dashboard            bool
@@ -140,6 +151,8 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 		"prioritySelected": prioritySelected,
 		"diverges":         store.PriorityScale().Diverges,
 		"wrenchRating":     priorityRenderer(store.PriorityScale()),
+		"wartungUnit":      wartungUnitLabel,
+		"wartungFinding":   wartungFindingLabel,
 	}).ParseFS(files, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("templates: %w", err)
@@ -197,6 +210,16 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("POST /purchases/{id}/edit", a.auth(a.updatePurchase))
 	mux.HandleFunc("POST /purchases/{id}/comments", a.auth(a.toolingComment))
 	mux.HandleFunc("POST /purchases/{id}/priority", a.auth(a.setPriority))
+	mux.HandleFunc("GET /wartung", a.browse(a.wartungBoard))
+	mux.HandleFunc("GET /wartung/{id}", a.browse(a.wartungObject))
+	mux.HandleFunc("POST /wartung/{id}/record", a.browse(a.recordWartung))
+	mux.HandleFunc("POST /wartung/{id}/records/{recordID}/approve", a.auth(a.approveWartung))
+	mux.HandleFunc("GET /admin/wartung/new", a.auth(a.newWartungObject))
+	mux.HandleFunc("POST /admin/wartung/new", a.auth(a.createWartungObject))
+	mux.HandleFunc("GET /admin/wartung/{id}/edit", a.auth(a.editWartungObject))
+	mux.HandleFunc("POST /admin/wartung/{id}/edit", a.auth(a.updateWartungObject))
+	mux.HandleFunc("GET /admin/wartung/settings", a.auth(a.wartungSettings))
+	mux.HandleFunc("POST /admin/wartung/settings", a.auth(a.wartungSettings))
 	mux.HandleFunc("GET /audit", a.auth(a.audit))
 	mux.HandleFunc("GET /admin/users", a.auth(a.users))
 	mux.HandleFunc("POST /admin/users", a.auth(a.createUser))
@@ -253,6 +276,16 @@ func statusLabel(status string) string {
 
 func auditAction(action string) string {
 	switch action {
+	case "wartung.object_create":
+		return "Wartungsobjekt angelegt"
+	case "wartung.object_update":
+		return "Wartungsobjekt geändert"
+	case "wartung.record_create":
+		return "Wartung eingetragen"
+	case "wartung.record_approve":
+		return "Wartung abgezeichnet"
+	case "wartung.settings_update":
+		return "Standard-Vorwarnzeit geändert"
 	case "tool.create":
 		return "Werkzeug angelegt"
 	case "tool.update":
@@ -314,6 +347,12 @@ func auditAction(action string) string {
 
 func auditEntity(entity string) string {
 	switch entity {
+	case "wartung_object":
+		return "Wartungsobjekt"
+	case "wartung_record":
+		return "Wartung"
+	case "wartung_settings":
+		return "Wartungseinstellungen"
 	case "tool":
 		return "Werkzeug"
 	case "tool_report":
@@ -383,8 +422,8 @@ func (a *app) protect(next http.Handler) http.Handler {
 		}
 		if r.Method == http.MethodPost {
 			// Form URL encoding can use twelve bytes per Unicode code point.
-			// Keep the transport limit above the 20,000-character text limit.
-			r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
+			// Maintenance forms contain two independent 20,000-character fields.
+			r.Body = http.MaxBytesReader(w, r.Body, 512<<10)
 			if err := r.ParseForm(); err != nil {
 				http.Error(w, "Formular ist ungültig oder zu groß.", http.StatusBadRequest)
 				return
@@ -522,7 +561,22 @@ func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
 			purchasePreview = append(purchasePreview, purchase)
 		}
 	}
-	a.render(w, r, "home", page{Title: "Dashboard", Dashboard: true, Current: &u, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews, DashboardTools: attention, ToolAttentionCount: attentionCount, DashboardPurchases: purchasePreview})
+	maintenance, err := a.store.WartungDashboard(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	maintenanceSettings, err := a.store.WartungSettings(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	maintenanceOverdue, err := a.wartungCards(maintenance.Overdue, maintenanceSettings, now)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.render(w, r, "home", page{Title: "Dashboard", Dashboard: true, Current: &u, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews, DashboardTools: attention, ToolAttentionCount: attentionCount, DashboardPurchases: purchasePreview, WartungOverdue: maintenanceOverdue, WartungOverdueCount: maintenance.OverdueCount, WartungSoonCount: maintenance.SoonCount})
 }
 
 func entryID(r *http.Request) (int64, error) {
