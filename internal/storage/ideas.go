@@ -159,10 +159,10 @@ func (s *Store) validateIdeaFilter(f ideas.Filter) (ideas.Filter, error) {
 	}
 	return f, nil
 }
-func (s *Store) Ideas(ctx context.Context, actorID int64, filter ideas.Filter) ([]ideas.Idea, error) {
+func (s *Store) ideaQuery(filter ideas.Filter) (string, []any, error) {
 	f, err := s.validateIdeaFilter(filter)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	query := "SELECT " + ideaColumns() + " FROM entries e JOIN ideas i ON i.entry_id=e.id WHERE e.module='idee'"
 	args := []any{}
@@ -199,6 +199,14 @@ func (s *Store) Ideas(ctx context.Context, actorID int64, filter ideas.Filter) (
 		query += " ORDER BY e.supervisor_priority DESC NULLS LAST,e.id DESC"
 	default:
 		query += " ORDER BY e.id DESC"
+	}
+	return query, args, nil
+}
+
+func (s *Store) Ideas(ctx context.Context, actorID int64, filter ideas.Filter) ([]ideas.Idea, error) {
+	query, args, err := s.ideaQuery(filter)
+	if err != nil {
+		return nil, err
 	}
 	result := make([]ideas.Idea, 0)
 	err = s.write(ctx, func(tx *sql.Tx) error {
