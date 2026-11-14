@@ -1,20 +1,20 @@
 {{define "header"}}<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Title}} · Werkstatt-Hub</title><link rel="stylesheet" href="/assets/style.css"></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Title}} · Werkstatt-Hub</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/priority.css"></head>
 <body><a class="skip" href="#content">Zum Inhalt</a><header class="bar"><a class="brand" href="/">WERKSTATT<span>HUB</span></a>
-<nav aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/ideas">Ideenboard</a><a href="/tasks">Aufgaben</a><a href="/tools">Werkzeuge</a>{{if .Current}}{{if manager .Current}}<a href="/audit">Protokoll</a>{{end}}{{if admin .Current}}<a href="/admin/users">Benutzer</a>{{end}}{{end}}</nav><div class="account">{{if .Current}}<span>{{.Current.Name}} <small>{{role .Current.Role}}</small></span><form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="quiet" type="submit">Abmelden</button></form>{{else}}<a href="/login">Namen wählen</a><a href="/admin/login">Admin</a>{{end}}</div></header>
+<nav aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/ideas">Ideenboard</a><a href="/tasks">Aufgaben</a><a href="/tools">Werkzeuge</a>{{if and .Current (not .PasswordRequired)}}{{if manager .Current}}<a href="/audit">Protokoll</a>{{end}}{{if admin .Current}}<a href="/admin/users">Benutzer</a>{{end}}{{end}}</nav><div class="account">{{if .Current}}<span>{{.Current.Name}} <small>{{role .Current.Role}}</small></span>{{if and (admin .Current) (not .PasswordRequired)}}<a href="/admin/password">Passwort ändern</a>{{end}}<form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="quiet" type="submit">Abmelden</button></form>{{else}}<a href="/login">Namen wählen</a><a href="/admin/login">Admin</a>{{end}}</div></header>
 <main id="content"{{if .Dashboard}} class="dashboard"{{end}}>{{end}}
 
 {{define "footer"}}</main><footer class="footer">Werkstatt-Hub · Lokal in der Werkstatt · Signaturzeiten in UTC · Fälligkeiten in {{.WorkshopTimezone}}</footer></body></html>{{end}}
 
 {{define "login"}}{{template "header" .}}
 <section class="login card"><p class="eyebrow">{{if .AdminLogin}}Verwaltung{{else}}Willkommen im Team{{end}}</p><h1>{{if .AdminLogin}}Admin-Anmeldung{{else}}Wer arbeitet gerade?{{end}}</h1>
-<p>Wähle deinen eigenen Namen zum Kommentieren, Bewerten und Bearbeiten. Bei neuen Beiträgen wählst du den Ersteller direkt im Formular.</p>
-{{if .Users}}<form method="post" action="{{if .AdminLogin}}/admin/login{{else}}/login{{end}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><label for="user_id">Dein Name</label><select id="user_id" name="user_id" required><option value="">Bitte auswählen …</option>{{range .Users}}<option value="{{.ID}}">{{.Name}} · {{role .Role}}</option>{{end}}</select><button type="submit">Werkstatt-Hub öffnen</button></form>{{else}}<p class="notice">{{if .AdminLogin}}Noch kein aktiver Admin vorhanden. Den ersten Admin einmalig über den lokalen Startbefehl anlegen (siehe README).{{else}}Noch keine aktiven Namen vorhanden. Ein Admin kann sie in der Benutzerverwaltung anlegen.{{end}}</p>{{end}}
-<p class="muted">Die Namensauswahl ist für das vertrauenswürdige Werkstattnetz vorgesehen.</p><a href="{{if .AdminLogin}}/login{{else}}/admin/login{{end}}">{{if .AdminLogin}}Zur Nutzerauswahl{{else}}Zum separaten Admin-Zugang{{end}}</a></section>
+<p>{{if .AdminLogin}}Melde dich mit deinem Admin-Namen und Passwort an.{{else}}Wähle deinen eigenen Namen zum Kommentieren, Bewerten und Bearbeiten. Bei neuen Beiträgen wählst du den Ersteller direkt im Formular.{{end}}</p>{{if .Error}}<p class="notice" role="alert">{{.Error}}</p>{{end}}
+{{if .Users}}<form method="post" action="{{if .AdminLogin}}/admin/login{{else}}/login{{end}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><label for="user_id">Dein Name</label><select id="user_id" name="user_id" required><option value="">Bitte auswählen …</option>{{range .Users}}<option value="{{.ID}}">{{.Name}} · {{role .Role}}</option>{{end}}</select>{{if .AdminLogin}}<label for="password">Passwort</label><input id="password" name="password" type="password" required autocomplete="current-password" maxlength="128">{{end}}<button type="submit">Werkstatt-Hub öffnen</button></form>{{else}}<p class="notice">{{if .AdminLogin}}Noch kein aktiver Admin vorhanden. Der Server richtet den ersten Admin beim Start automatisch ein.{{else}}Noch keine aktiven Namen vorhanden. Ein Admin kann sie in der Benutzerverwaltung anlegen.{{end}}</p>{{end}}
+<p class="muted">Die Anwendung ist für das vertrauenswürdige Werkstattnetz vorgesehen.</p><a href="{{if .AdminLogin}}/login{{else}}/admin/login{{end}}">{{if .AdminLogin}}Zur Nutzerauswahl{{else}}Zum separaten Admin-Zugang{{end}}</a></section>
 {{template "footer" .}}{{end}}
 
 {{define "priority-summary"}}
-<div class="priorities" aria-label="Prioritäten"><span>Mitarbeiter-Priorität: <strong>{{priority .EmployeePriority}}</strong></span><span>Vorgesetzten-Priorität: <strong>{{priority .SupervisorPriority}}</strong></span></div>
+<div class="priorities" aria-label="Prioritäten">{{template "priority-rating" (wrenchRating .EmployeePriority "Mitarbeiter-Priorität")}}{{template "priority-rating" (wrenchRating .SupervisorPriority "Vorgesetzten-Priorität")}}</div>
 {{if diverges .}}<p class="divergence"><span aria-hidden="true">⚠</span> Prioritäten weichen stark ab</p>{{end}}
 {{end}}
 
@@ -23,13 +23,12 @@
 {{end}}
 
 {{define "home"}}{{template "header" .}}
-<div class="heading"><div><p class="eyebrow">Gemeinsam den Überblick behalten</p><h1>Werkstatt-Dashboard</h1><p class="muted">Meldungen teilen und Ideen für den Arbeitsablauf sammeln.</p></div><a class="button" href="/entries/new">+ Neuer Eintrag</a></div>
+<div class="heading"><div><p class="eyebrow">Gemeinsam den Überblick behalten</p><h1>Werkstatt-Dashboard</h1><p class="muted">Meldungen teilen und Ideen für den Arbeitsablauf sammeln.</p></div></div>
 <div class="dashboard-columns">
 <div class="dashboard-column dashboard-column-tasks">{{template "dashboard-tasks" .}}</div>
 <div class="dashboard-column dashboard-column-tools">{{template "dashboard-tooling" .}}</div>
 <div class="dashboard-column dashboard-column-ideas"><section aria-label="Ideenboard"><div class="heading"><h2>Neueste Ideen</h2><a href="/ideas">Ideenboard öffnen →</a></div>{{if .Ideas}}<div class="entries">{{range .Ideas}}{{template "idea-card" .}}{{end}}</div>{{else}}<p class="card">Noch keine Ideen vorhanden. <a href="/ideas/new">Die erste Idee vorschlagen</a></p>{{end}}</section></div>
 </div>
-<h2 class="section-title">Basiseinträge</h2>{{if .Entries}}<div class="entries">{{range .Entries}}<article class="card entry-card"><div class="row"><span class="badge">{{status .Status}}</span><span class="muted">#{{.ID}}</span></div><h2><a href="/entries/{{.ID}}">{{.Title}}</a></h2><p class="preview">{{.Body}}</p>{{template "priority-summary" .}}<div class="signature">{{.Signature.Name}}<br><time>{{date .Signature.At}}</time></div></article>{{end}}</div>{{else}}<section class="card empty"><h2>Hier beginnt der Austausch.</h2><p>Noch keine Einträge vorhanden. Lege den ersten Eintrag für deine Werkstatt an.</p><a href="/entries/new">Eintrag erstellen →</a></section>{{end}}
 {{template "footer" .}}{{end}}
 
 {{define "ideas"}}{{template "header" .}}
@@ -73,10 +72,4 @@
 {{define "audit"}}{{template "header" .}}
 <div class="heading"><div><p class="eyebrow">Wer hat wann was geändert?</p><h1>Änderungsprotokoll</h1><p class="muted">Einträge werden unveränderlich ergänzt. Frühere Stände bleiben nachvollziehbar.</p></div></div>
 {{range .Events}}<article class="card audit"><div class="row"><strong>{{.ActorName}}</strong><span class="muted">{{date .At}}</span></div><p><span class="badge">{{action .Action}}</span> {{entity .EntityType}} #{{.EntityID}} · Protokoll #{{.ID}}</p><details><summary>Vorherigen und neuen Stand anzeigen</summary><div class="audit-values"><div><h3>Vorher</h3><pre>{{if .Before}}{{.Before}}{{else}}—{{end}}</pre></div><div><h3>Nachher</h3><pre>{{if .After}}{{.After}}{{else}}—{{end}}</pre></div></div></details></article>{{else}}<p class="card">Noch keine Änderungen vorhanden.</p>{{end}}
-{{template "footer" .}}{{end}}
-
-{{define "users"}}{{template "header" .}}
-<div class="heading"><div><p class="eyebrow">Verwaltung</p><h1>Namen und Rollen</h1><p class="muted">Deaktivierte Nutzer verlieren ihren Zugriff sofort. Bereits erstellte Signaturen bleiben erhalten.</p></div></div>
-<section class="card"><h2>Neuen Nutzer anlegen</h2><form class="user-form" method="post" action="/admin/users"><input type="hidden" name="csrf" value="{{.CSRF}}"><div><label for="new-name">Name</label><input id="new-name" name="name" maxlength="100" required autocomplete="off"></div><div><label for="new-role">Rolle</label><select id="new-role" name="role"><option value="mitarbeiter">Mitarbeiter</option><option value="vorgesetzter">Vorgesetzter</option><option value="admin">Admin</option></select></div><button type="submit">Nutzer anlegen</button></form></section>
-<section class="card"><h2>Vorhandene Nutzer</h2>{{range .Users}}<form class="user-form existing" method="post" action="/admin/users/{{.ID}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><div><label for="name-{{.ID}}">Name #{{.ID}}</label><input id="name-{{.ID}}" name="name" maxlength="100" required value="{{.Name}}"></div><div><label for="role-{{.ID}}">Rolle</label><select id="role-{{.ID}}" name="role"><option value="mitarbeiter" {{if eq .Role "mitarbeiter"}}selected{{end}}>Mitarbeiter</option><option value="vorgesetzter" {{if eq .Role "vorgesetzter"}}selected{{end}}>Vorgesetzter</option><option value="admin" {{if eq .Role "admin"}}selected{{end}}>Admin</option></select></div><label class="check" for="active-{{.ID}}"><input type="checkbox" id="active-{{.ID}}" name="active" value="1" {{if .Active}}checked{{end}}> Aktiv</label><button type="submit" class="secondary">Speichern</button></form>{{end}}</section>
 {{template "footer" .}}{{end}}

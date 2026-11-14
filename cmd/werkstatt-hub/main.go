@@ -88,6 +88,13 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		_, err = fmt.Fprintln(out, "Alle versionierten Migrationen sind angewendet.")
 		return err
 	}
+	initialAdmins, err := store.EnsureAdminAccess(ctx)
+	if err != nil {
+		return fmt.Errorf("Admin-Zugang einrichten: %w", err)
+	}
+	for _, initial := range initialAdmins {
+		fmt.Fprintf(out, "Admin-Zugang: %s (ID %d)\nEinmaliges Startpasswort: %s\nBei der ersten Anmeldung unter /admin/login ein neues Passwort festlegen.\n", initial.User.Name, initial.User.ID, initial.Password)
+	}
 	ttl, _ := time.ParseDuration(cfg.SessionTTL)
 	handler, err := web.New(store, web.Options{SecureCookies: cfg.SecureCookies, SessionTTL: ttl})
 	if err != nil {

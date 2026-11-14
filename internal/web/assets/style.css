@@ -22,3 +22,6 @@ main.dashboard{max-width:1600px;padding:0 1.5rem}
 .dashboard-column .task-links,.dashboard-column .tool-tabs{margin-bottom:0;gap:.35rem .8rem}
 @media(min-width:1100px){.dashboard-columns{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){main.dashboard{padding:0 1rem}}
+
+/* Passwords are never prefilled; account removal preserves past signatures. */
+.delete-user-form{margin-top:.75rem}.delete-user-form button{margin-top:0}.danger{background:#a1312c;border-color:#a1312c}.danger:hover{background:#7e221e}.user-form small{display:block;color:#586d65;font-size:.8rem;line-height:1.4;margin-top:.3rem}

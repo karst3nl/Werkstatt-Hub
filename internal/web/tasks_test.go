@@ -114,7 +114,7 @@ func TestTaskHTTPWorkflowAndRoleGuards(t *testing.T) {
 			viewer = manager
 		}
 		r := viewer.request("GET", fmt.Sprintf("/entries/%d%s", task.ID, suffix), nil, false, "")
-		if r.Code != http.StatusSeeOther || r.Header().Get("Location") != path+suffix {
+		if r.Code != http.StatusNotFound {
 			t.Fatalf("task canonical route %q: %d %q", suffix, r.Code, r.Header().Get("Location"))
 		}
 	}

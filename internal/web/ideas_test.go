@@ -48,7 +48,7 @@ func TestIdeasHTTPWorkflowAndRights(t *testing.T) {
 	}
 	for _, suffix := range []string{"", "/edit"} {
 		w = b.request("GET", fmt.Sprintf("/entries/%d%s", i.ID, suffix), nil, false, "")
-		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != path+suffix {
+		if w.Code != http.StatusNotFound {
 			t.Fatalf("noncanonical idea path %s: %d %q", suffix, w.Code, w.Header().Get("Location"))
 		}
 	}
@@ -107,7 +107,7 @@ func TestIdeasHTTPWorkflowAndRights(t *testing.T) {
 }
 
 func TestPriorityHTTPRightsValidationAndConflict(t *testing.T) {
-	for _, module := range []string{"basis", "idee"} {
+	for _, module := range []string{"idee"} {
 		t.Run(module, func(t *testing.T) {
 			f := setup(t)
 			ctx := context.Background()

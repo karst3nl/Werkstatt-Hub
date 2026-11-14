@@ -148,7 +148,7 @@ func TestToolReportHTTPPublicCreationAndOfficialConditionBoundary(t *testing.T) 
 	if w := anon.request("GET", path, nil, false, ""); w.Code != 200 || strings.Contains(w.Body.String(), "<script>Defektmeldung</script>") {
 		t.Fatalf("report detail escaping: %d %s", w.Code, w.Body)
 	}
-	if w := anon.request("GET", fmt.Sprintf("/entries/%d", report.ID), nil, false, ""); w.Code != 303 || w.Header().Get("Location") != path {
+	if w := anon.request("GET", fmt.Sprintf("/entries/%d", report.ID), nil, false, ""); w.Code != 404 {
 		t.Fatalf("report canonical redirect: %d %q", w.Code, w.Header().Get("Location"))
 	}
 	author := newBrowser(t, f.handler)
@@ -253,7 +253,7 @@ func TestPurchaseHTTPWorkflowAuthorRightsAndNoAutomaticInventory(t *testing.T) {
 	if err != nil || len(inventory) != 1 {
 		t.Fatalf("delivery automatically created inventory: %#v %v", inventory, err)
 	}
-	if w := anon.request("GET", fmt.Sprintf("/entries/%d", purchase.ID), nil, false, ""); w.Code != 303 || w.Header().Get("Location") != path {
+	if w := anon.request("GET", fmt.Sprintf("/entries/%d", purchase.ID), nil, false, ""); w.Code != 404 {
 		t.Fatalf("purchase canonical redirect: %d %q", w.Code, w.Header().Get("Location"))
 	}
 }

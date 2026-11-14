@@ -61,7 +61,7 @@ func TestPublicDashboardAndCreationForms(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := newBrowser(t, f.handler)
-	for _, path := range []string{"/", "/ideas", fmt.Sprintf("/entries/%d", entry.ID), fmt.Sprintf("/ideas/%d", idea.ID)} {
+	for _, path := range []string{"/", "/ideas", fmt.Sprintf("/ideas/%d", idea.ID)} {
 		w := b.request("GET", path, nil, false, "")
 		if w.Code != http.StatusOK || w.Header().Get("Location") != "" {
 			t.Fatalf("public %s: %d %s", path, w.Code, w.Body)
@@ -75,7 +75,7 @@ func TestPublicDashboardAndCreationForms(t *testing.T) {
 			}
 		}
 	}
-	for _, path := range []string{"/entries/new", "/ideas/new"} {
+	for _, path := range []string{"/ideas/new"} {
 		w := b.request("GET", path, nil, false, "")
 		if w.Code != http.StatusOK {
 			t.Fatalf("public form %s: %d %s", path, w.Code, w.Body)
@@ -99,10 +99,22 @@ func TestPublicDashboardAndCreationForms(t *testing.T) {
 	if b.cookies[sessionCookie] != nil {
 		t.Fatal("public browsing issued a user session")
 	}
+	for _, target := range []struct{ method, path string }{{"GET", "/entries/new"}, {"GET", fmt.Sprintf("/entries/%d", entry.ID)}, {"POST", "/entries/new"}, {"POST", fmt.Sprintf("/entries/%d/edit", entry.ID)}} {
+		if w := b.request(target.method, target.path, url.Values{"title": {"Unsichtbar"}, "body": {"Nicht speichern"}}, true, ""); w.Code != http.StatusNotFound {
+			t.Fatalf("removed basic route %s %s = %d", target.method, target.path, w.Code)
+		}
+	}
+	if w := b.request("GET", "/", nil, false, ""); strings.Contains(w.Body.String(), entry.Title) || strings.Contains(w.Body.String(), "Basiseinträge") || strings.Contains(w.Body.String(), "/entries/") {
+		t.Fatal("dashboard still exposes basic entries")
+	}
+	if preserved, err := f.store.Entry(ctx, f.admin.ID, entry.ID); err != nil || preserved.Signature != entry.Signature {
+		t.Fatalf("legacy entry data changed: %#v %v", preserved, err)
+	}
+
 }
 
 func TestAnonymousCreationUsesChosenAuthorWithoutGrantingSession(t *testing.T) {
-	for _, module := range []string{"basis", "idee"} {
+	for _, module := range []string{"idee"} {
 		t.Run(module, func(t *testing.T) {
 			f := setup(t)
 			b := newBrowser(t, f.handler)
@@ -144,7 +156,11 @@ func TestAnonymousCreationUsesChosenAuthorWithoutGrantingSession(t *testing.T) {
 				{"GET", "/admin/users", nil},
 			} {
 				result := b.request(target.method, target.path, target.form, true, "")
-				if result.Code != http.StatusSeeOther || result.Header().Get("Location") != "/login" {
+				targetLogin := "/login"
+				if strings.HasPrefix(target.path, "/admin/") {
+					targetLogin = "/admin/login"
+				}
+				if result.Code != http.StatusSeeOther || result.Header().Get("Location") != targetLogin {
 					t.Fatalf("anonymous protected action %s %s: %d %s", target.method, target.path, result.Code, result.Body)
 				}
 			}
@@ -156,7 +172,7 @@ func TestAnonymousCreationUsesChosenAuthorWithoutGrantingSession(t *testing.T) {
 }
 
 func TestEveryCreationRequiresAnActiveAuthor(t *testing.T) {
-	for _, base := range []string{"/entries", "/ideas"} {
+	for _, base := range []string{"/ideas"} {
 		t.Run(base, func(t *testing.T) {
 			f := setup(t)
 			if err := f.store.UpdateUser(context.Background(), f.admin.ID, f.other.ID, f.other.Name, f.other.Role, false); err != nil {
@@ -191,7 +207,7 @@ func TestEveryCreationRequiresAnActiveAuthor(t *testing.T) {
 }
 
 func TestAuthorChoiceDoesNotReplaceExistingSession(t *testing.T) {
-	for _, base := range []string{"/entries", "/ideas"} {
+	for _, base := range []string{"/ideas"} {
 		t.Run(base, func(t *testing.T) {
 			f := setup(t)
 			b := newBrowser(t, f.handler)

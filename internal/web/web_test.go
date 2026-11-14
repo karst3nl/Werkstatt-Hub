@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,12 +11,39 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"werkstatt-hub/internal/auth"
 	"werkstatt-hub/internal/core"
+	"werkstatt-hub/internal/ideas"
 	"werkstatt-hub/internal/storage"
 )
+
+const fixtureAdminPassword = "Nur-im-Test-Adminzugang-2026"
+
+var fixtureHashOnce sync.Once
+var fixtureHash string
+var fixtureHashError error
+
+// General page tests start with an already configured administrator. Hashing
+// once retains the production codec without paying its setup cost per fixture.
+func configureFixtureAdmin(t *testing.T, path string, id int64) {
+	t.Helper()
+	fixtureHashOnce.Do(func() { fixtureHash, fixtureHashError = auth.HashPassword(fixtureAdminPassword) })
+	if fixtureHashError != nil {
+		t.Fatal(fixtureHashError)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err = db.Exec("INSERT INTO admin_credentials(user_id,password_hash,must_change) VALUES(?,?,0)", id, fixtureHash); err != nil {
+		t.Fatal(err)
+	}
+}
 
 type fixture struct {
 	store                              *storage.Store
@@ -25,7 +53,8 @@ type fixture struct {
 
 func setup(t *testing.T) fixture {
 	t.Helper()
-	s, err := storage.Open(filepath.Join(t.TempDir(), "test.db"))
+	path := filepath.Join(t.TempDir(), "test.db")
+	s, err := storage.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,6 +64,7 @@ func setup(t *testing.T) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	configureFixtureAdmin(t, path, a.ID)
 	create := func(name string, role core.Role) core.User {
 		u, err := s.CreateUser(ctx, a.ID, name, role)
 		if err != nil {
@@ -107,7 +137,11 @@ func (b *browser) login(u core.User) {
 	if w := b.request("GET", path, nil, false, ""); w.Code != 200 {
 		b.t.Fatalf("login form: %d %s", w.Code, w.Body)
 	}
-	w := b.request("POST", path, url.Values{"user_id": {strconv.FormatInt(u.ID, 10)}}, true, "")
+	form := url.Values{"user_id": {strconv.FormatInt(u.ID, 10)}}
+	if u.Role == core.RoleAdmin {
+		form.Set("password", fixtureAdminPassword)
+	}
+	w := b.request("POST", path, form, true, "")
 	if w.Code != http.StatusSeeOther {
 		b.t.Fatalf("login: %d %s", w.Code, w.Body)
 	}
@@ -201,7 +235,7 @@ func TestHTTPRightsAndLiveUserState(t *testing.T) {
 	if err := f.store.UpdateUser(ctx, f.admin.ID, f.supervisor.ID, f.supervisor.Name, core.RoleEmployee, true); err != nil {
 		t.Fatal(err)
 	}
-	if w := b.request("GET", "/audit", nil, false, ""); w.Code != 403 {
+	if w := b.request("GET", "/audit", nil, false, ""); w.Code != 303 {
 		t.Fatalf("role change not effective for live session: %d", w.Code)
 	}
 	if err := f.store.UpdateUser(ctx, f.admin.ID, f.supervisor.ID, f.supervisor.Name, core.RoleEmployee, false); err != nil {
@@ -212,17 +246,17 @@ func TestHTTPRightsAndLiveUserState(t *testing.T) {
 	}
 }
 
-func TestEntriesIgnoreForgedSignatureAndProtectEdits(t *testing.T) {
+func TestIdeasIgnoreForgedSignatureAndProtectEdits(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	b := newBrowser(t, f.handler)
 	b.login(f.employee)
 	body := strings.Repeat("ä", 20000)
-	w := b.request("POST", "/entries/new", url.Values{"title": {"<script>alert(1)</script>"}, "body": {body}, "author_id": {strconv.FormatInt(f.employee.ID, 10)}, "role": {"admin"}, "signature_name": {"Admin"}, "signature_at": {"1900-01-01"}, "status": {"erledigt"}}, true, "")
+	w := b.request("POST", "/ideas/new", url.Values{"title": {"<script>alert(1)</script>"}, "body": {body}, "category": {"Arbeitsablauf"}, "author_id": {strconv.FormatInt(f.employee.ID, 10)}, "role": {"admin"}, "signature_name": {"Admin"}, "signature_at": {"1900-01-01"}, "status": {"erledigt"}}, true, "")
 	if w.Code != 303 {
 		t.Fatalf("unicode entry: %d %s", w.Code, w.Body)
 	}
-	entries, err := f.store.Entries(ctx, f.employee.ID)
+	entries, err := f.store.Ideas(ctx, f.employee.ID, ideas.Filter{})
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("entries: %v %#v", err, entries)
 	}
@@ -230,7 +264,7 @@ func TestEntriesIgnoreForgedSignatureAndProtectEdits(t *testing.T) {
 	if e.Signature.Name != f.employee.Name || e.AuthorID != f.employee.ID || e.Signature.At.Year() < 2020 || e.Status != "neu" {
 		t.Fatalf("forged fields trusted: %#v", e)
 	}
-	path := fmt.Sprintf("/entries/%d", e.ID)
+	path := fmt.Sprintf("/ideas/%d", e.ID)
 	w = b.request("GET", path, nil, false, "")
 	if w.Code != 200 || strings.Contains(w.Body.String(), "<script>alert(1)</script>") || !strings.Contains(w.Body.String(), "&lt;script&gt;") {
 		t.Fatalf("entry not escaped: %d", w.Code)
@@ -241,13 +275,13 @@ func TestEntriesIgnoreForgedSignatureAndProtectEdits(t *testing.T) {
 	if policy := w.Header().Get("Referrer-Policy"); policy != "same-origin" {
 		t.Fatalf("form origin must survive the referrer policy: %q", policy)
 	}
-	if w = b.request("GET", "/entries/new", nil, false, ""); w.Code != 200 {
+	if w = b.request("GET", "/ideas/new", nil, false, ""); w.Code != 200 {
 		t.Fatalf("new entry form: %d", w.Code)
 	}
 	if w = b.request("GET", path+"/edit", nil, false, ""); w.Code != 200 {
 		t.Fatalf("own edit form: %d", w.Code)
 	}
-	forged := url.Values{"title": {"Geändert"}, "body": {"Beschreibung"}, "status": {"erledigt"}, "version": {strconv.FormatInt(e.Version, 10)}}
+	forged := url.Values{"title": {"Geändert"}, "body": {"Beschreibung"}, "category": {"Arbeitsablauf"}, "status": {"umgesetzt"}, "version": {strconv.FormatInt(e.Version, 10)}}
 	if w = b.request("POST", path+"/edit", forged, true, ""); w.Code != 403 {
 		t.Fatalf("employee status escalation: %d %s", w.Code, w.Body)
 	}
