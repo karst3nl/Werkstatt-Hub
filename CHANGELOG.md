@@ -2,6 +2,24 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.3.0 – 2026-11-14
+
+### Hinzugefügt
+
+- Aufgabenboard als eigenes Modul mit Kanban-Status, Zuweisung und verpflichtendem Fälligkeitsdatum.
+- Öffentliche Aufgabenübersicht und Details sowie persönliche Ansicht nach Namensauswahl.
+- Erinnerungen auf Dashboard und in der eigenen Aufgabenansicht für überfällige, heute und bald fällige Aufgaben.
+- Konfigurierbare Werkstatt-Zeitzone (`Europe/Berlin`) und Erinnerungszeitraum (drei Kalendertage); Zeitzonendaten werden lokal mitgeliefert.
+- Rollenabhängige Statusänderungen und signierte Abnahme durch Vorgesetzte/Admins; Wiederöffnen erhält frühere Abnahmen im Audit.
+- Gemeinsame Kommentare, beide Prioritäten und atomarer Audit-Verlauf auch für Aufgaben, mit Versionsprüfung gegen konkurrierende Änderungen.
+- Versionierte Migration 003 unter Erhalt vorhandener Einträge, Ideen, Kommentare, Signaturen und Audit-Historie.
+
+### Annahmen
+
+- Alle aktiven Mitarbeiter können Aufgaben erhalten, solange es keine eigene Azubi-Kennzeichnung gibt; Ausbilder verwenden die Vorgesetztenrolle.
+- Das Anlegen einer Aufgabe erfordert eine berechtigte Namenssitzung. Der gewählte berechtigte Ersteller bestimmt die Signatur, der handelnde Sitzungsnutzer bleibt Audit-Akteur.
+- „Bald fällig“ umfasst standardmäßig die nächsten drei Kalendertage einschließlich des letzten Tages. Fertige Aufgaben erzeugen keine Erinnerungen.
+
 ## 0.2.1 – 2026-11-14
 
 ### Geändert

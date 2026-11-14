@@ -31,8 +31,9 @@ Nutzer: Mitarbeiter, Azubis und Vorgesetzte. Sprache der Oberfläche: **Deutsch*
 
 ## 4. Rollen und Anmeldung
 - Rollen: **Mitarbeiter** (inkl. Azubis), **Vorgesetzter**, **Admin**.
-- **Startseite ohne Anmeldung:** Beim Aufrufen der App öffnet sich direkt das Dashboard. Basiseinträge, Ideenboard, Detailansichten und vorhandene Kommentare sind im Werkstattnetz ohne Namenssitzung lesbar.
+- **Startseite ohne Anmeldung:** Beim Aufrufen der App öffnet sich direkt das Dashboard. Basiseinträge, Ideenboard, Aufgabenboard, Detailansichten und vorhandene Kommentare sind im Werkstattnetz ohne Namenssitzung lesbar.
 - **Erstellerwahl pro neuem Beitrag:** Beim Erstellen eines Basiseintrags oder einer Idee wird ein aktiver Ersteller aus der Namensliste ausdrücklich ausgewählt. Die Auswahl gilt nur für diesen Beitrag, erzeugt keine Sitzung und wechselt keine vorhandene Sitzung. Sie bestimmt Autor, Signatur und Audit-Akteur der Neuanlage.
+- **Aufgabenzuweisung:** Neue Aufgaben benötigen eine aktive Vorgesetzten- oder Admin-Sitzung. Der ausdrücklich gewählte Ersteller muss ebenfalls ein aktiver Vorgesetzter oder Admin sein. Er signiert den Eintrag; Audit-Akteur bleibt der tatsächliche Sitzungsnutzer. Die Erstellerwahl wechselt keine Sitzung.
 - **Optionale Namenssitzung:** Zum Kommentieren, Bewerten und Bearbeiten wird weiterhin der eigene Name aus einer Liste gewählt, ohne Passwort. Das ist bewusst simpel, weil die App nur im Werkstattnetz läuft. Geschützte Aktionen behalten ihre Rollenprüfungen.
 - Den Auth-Teil so kapseln, dass später PIN oder Passwort ergänzt werden kann, ohne den Rest umzubauen.
 - Admin-Zugang separat (Benutzer anlegen, deaktivieren, Rollen setzen, Einstellungen).
@@ -123,4 +124,9 @@ Passwörter oder PIN, Benachrichtigungen (Mail/Push), Foto-Anzeige in der Oberfl
 - Migration 002 erhält bestehende Meilenstein-1-Daten. Kategorien sind zunächst freie Pflichttexte; die genaue Rechtematrix und gemeinsame Werte ohne Abstimmung sind in `README.md` dokumentiert.
 - Meilenstein-2-Rechte, Prioritätsänderungen, Filter/Sortierung, Audit-Rollback und Migration mit Bestandsdaten getestet. Race-Tests, `go vet`, Chromium-Ablauf bei 320–1360 Pixeln und ARM64-Build erfolgreich.
 - Ablaufkorrektur nach Nutzerwunsch: Dashboard und öffentliche Eintragsansichten direkt erreichbar; Erstellerpflichtwahl für jede Neuanlage, ohne impliziten Sitzungswechsel. Signaturen und Audit bleiben serverseitig, geschützte Aktionen weiterhin rollenabhängig.
-- **Nächster fachlicher Schritt: Meilenstein 3**, Azubi-Aufgabenboard mit Erinnerungen.
+- **Meilenstein 3 umgesetzt:** eigenes Aufgabenmodul mit öffentlichem Kanban-Board, persönlicher Aufgabenansicht, Fälligkeiten, Erinnerungen und signierter Abnahme durch Vorgesetzte/Admins.
+- Aufgaben werden mangels eigener Azubi-Kennzeichnung zunächst aktiven Mitarbeitern zugewiesen. Zugewiesene Mitarbeiter bearbeiten die ersten drei Status; Zuweisung, Inhaltsänderungen, Abnahme und Wiederöffnen sind Vorgesetzten/Admins vorbehalten. Erledigte Aufgaben werden vor Inhaltsänderungen wieder geöffnet; eine Neuzuweisung setzt den Status auf „Offen“.
+- Erinnerungen verwenden die Werkstatt-Zeitzone (Standard `Europe/Berlin`) und standardmäßig die nächsten drei Kalendertage. Zeitzone und Zeitraum sind konfigurierbar; Signaturzeiten bleiben UTC. Keine E-Mail-/Push-Dienste.
+- Migration 003 ergänzt Aufgaben unter Erhalt der bisherigen Einträge, Ideen, Kommentare, Prioritäten, Signaturen und Audit-Historie. Prüfschwerpunkte für Rechte, Status/Abnahme, Kalendergrenzen und Migration sind in `README.md` festgehalten.
+- Meilenstein 3 geprüft mit vollständigen Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 sowie einem Chromium-Ablauf bei 320–1360 Pixeln. Migration einer bestehenden Meilenstein-2-Testdatenbank erhält die bisherigen Daten.
+- **Nächster fachlicher Schritt: Meilenstein 4**, Werkzeugverwaltung für Zustand und Anschaffung.

@@ -1,6 +1,6 @@
 # Werkstatt-Hub
 
-Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 und 2 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie sowie ein Ideenboard mit zwei unabhängigen Prioritäten. Oberfläche und Fehlermeldungen sind deutsch.
+Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 bis 3 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie, Ideenboard mit zwei unabhängigen Prioritäten sowie ein Aufgabenboard mit Fälligkeiten und Abnahme. Oberfläche und Fehlermeldungen sind deutsch.
 
 ## Tech-Stack
 
@@ -39,6 +39,8 @@ go run ./cmd/werkstatt-hub serve --config config.local.json
 | `session_ttl` | Sitzungsdauer als Go-Dauer, Standard `12h`, maximal `168h` |
 | `secure_cookies` | Für lokales HTTP `false`; bei späterem HTTPS `true` |
 | `priority_min`, `priority_max` | Gemeinsame Skala für beide Prioritäten; Standard 1–5, zulässig `1 ≤ Minimum < Maximum ≤ 100` |
+| `timezone` | Werkstatt-Zeitzone für Fälligkeiten, Standard `Europe/Berlin` |
+| `reminder_days` | Zeitraum für „bald fällig“ in Kalendertagen, Standard `3`, zulässig 1–30 |
 
 ```sh
 CGO_ENABLED=0 go build -o bin/werkstatt-hub ./cmd/werkstatt-hub
@@ -51,11 +53,11 @@ Für ein späteres Deployment werden nur das passende Binary, eine lokale Konfig
 
 ## Dashboard und Erstellerwahl
 
-Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Basiseinträge, Ideenboard, Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
+Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Basiseinträge, Ideenboard, Aufgabenboard, Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
 
 Bei **jedem neuen Basiseintrag und jeder neuen Idee** ist im Formular ein aktiver **Ersteller** aus der Namensliste auszuwählen. Die Auswahl beginnt leer, auch bei einer bestehenden Sitzung. Name, Autor-ID und Signaturzeit werden serverseitig aus diesem Nutzer und der aktuellen Uhrzeit erzeugt. Freie Signatur- oder Zeitangaben aus dem Browser werden nicht übernommen. Fehlende, unbekannte und deaktivierte Ersteller werden abgewiesen.
 
-Die Erstellerwahl gilt ausschließlich für den neuen Beitrag: Sie erzeugt keine Anmeldung und wechselt keine bestehende Sitzung, auch bei Auswahl eines Admins. Das Audit der Neuanlage nennt den gewählten Ersteller. Zum Kommentieren, Bewerten und Bearbeiten wählt man weiterhin über **Namen wählen** den eigenen Namen; Audit und Verwaltung behalten ihre Rollenprüfungen und den separaten Admin-Zugang. Alle Autorenrollen können ausgewählt werden; Rechte für spätere Bearbeitungen entstehen daraus nicht automatisch.
+Die Erstellerwahl gilt ausschließlich für den neuen Beitrag: Sie erzeugt keine Anmeldung und wechselt keine bestehende Sitzung, auch bei Auswahl eines Admins. Das Audit der Neuanlage nennt den gewählten Ersteller. Zum Kommentieren, Bewerten und Bearbeiten wählt man weiterhin über **Namen wählen** den eigenen Namen; Audit und Verwaltung behalten ihre Rollenprüfungen und den separaten Admin-Zugang. Bei Basiseinträgen und Ideen können alle Autorenrollen ausgewählt werden; Rechte für spätere Bearbeitungen entstehen daraus nicht automatisch. Das Anlegen und Zuweisen einer Aufgabe erfordert dagegen eine aktive Vorgesetzten- oder Admin-Sitzung und einen entsprechend berechtigten Ersteller.
 
 ## Ideenboard und Prioritäten
 
@@ -74,9 +76,29 @@ Das Board filtert nach Kategorie, Status, beiden Prioritäten (auch „Noch nich
 
 Die Skala wird über `priority_min` und `priority_max` in der lokalen JSON-Konfiguration geändert. Die App dazu neu starten. Fehlen diese Angaben in einer bisherigen Konfiguration, gilt weiterhin 1–5. Eine Skala, die bereits gespeicherte Werte ausschließt, führt zu einem verständlichen Startfehler; bestehende Werte werden nicht umgerechnet oder gelöscht.
 
+## Aufgabenboard und Erinnerungen
+
+Das **Aufgabenboard** (`/tasks`) zeigt die vier Kanban-Status **Offen**, **In Arbeit**, **Zur Kontrolle** und **Erledigt**. Gesamtboard, Aufgabendetails, beide Prioritäten und Kommentare sind im Werkstattnetz ohne Anmeldung lesbar. Nach optionaler Namensauswahl führt **Meine Aufgaben** (`/tasks?mine=1`) ausschließlich zu den Aufgaben der gewählten Person. Das Gesamtboard kann nach zugewiesener Person und Status gefiltert werden; Aufgaben sind nach Fälligkeit und bei gleichem Datum nach neuestem Eintrag geordnet.
+
+**Zuweisung und Abnahme:** Vorgesetzte und Admins legen Aufgaben mit Titel, Beschreibung, zugewiesener Person und verpflichtendem Fälligkeitsdatum an. Der Ersteller wird auch hier ausdrücklich ausgewählt, jedoch aus den aktiven Vorgesetzten und Admins. Diese Auswahl ändert keine Sitzung. Die ursprüngliche Signatur nennt den gewählten Ersteller; das Audit nennt den tatsächlich handelnden Vorgesetzten oder Admin aus der Sitzung. Beide Personen können verschieden sein. Ein ausgewählter Ersteller ersetzt daher keine für die Zuweisung notwendige Berechtigung.
+
+Es gibt noch keine eigene Azubi-Kennzeichnung: Aufgaben können zunächst allen **aktiven Mitarbeitern** zugewiesen werden, einschließlich Azubis. Ausbilder verwenden die Rolle **Vorgesetzter**. Eine Aufgabe beginnt mit **Offen**. Die zugewiesene Person darf zwischen den ersten drei Status wechseln; andere Mitarbeiter dürfen ihren Arbeitsstatus nicht ändern. Titel, Beschreibung, Fälligkeit und Zuweisung ändern ausschließlich Vorgesetzte und Admins. Eine neue Zuweisung setzt den Status auf **Offen** zurück.
+
+Eine Aufgabe kann erst aus **Zur Kontrolle** durch einen Vorgesetzten oder Admin **abgenommen** und damit **Erledigt** werden. Die Abnahme speichert zusätzlich Namen, Nutzer-ID und Serverzeit des Abnehmenden. Erledigte Aufgaben müssen vor Änderungen an Text, Fälligkeit oder Zuweisung wieder geöffnet werden. Beim Wiederöffnen wird die aktuelle Abnahmesignatur entfernt; frühere Abnahmen bleiben im Audit erhalten. Die ursprüngliche Erstellersignatur bleibt immer unverändert. Kommentare und Prioritäten nutzen weiterhin die gemeinsamen Rechte und die gemeinsame Änderungshistorie. Status, Zuweisung, Inhalt und Prioritäten teilen sich die Versionsprüfung gegen veraltete Formulare.
+
+**Erinnerungen** erscheinen beim Öffnen des Dashboards und in der eigenen Aufgabenansicht für alle noch nicht erledigten Aufgaben:
+
+- **Überfällig:** Fälligkeitsdatum liegt vor dem heutigen Werkstatttag.
+- **Heute fällig:** Fälligkeitsdatum ist der heutige Werkstatttag.
+- **Bald fällig:** Fälligkeitsdatum liegt innerhalb der nächsten `reminder_days` Kalendertage, einschließlich des letzten Tages; standardmäßig sind das drei Tage.
+
+Ohne Namenssitzung sowie für Vorgesetzte und Admins zeigt das Dashboard die allgemeinen Aufgabenerinnerungen. Bei einer Mitarbeiter-Sitzung erscheinen dort die eigenen Aufgaben und Erinnerungen. Es werden keine E-Mails oder Push-Nachrichten versendet. Die Anzeige wird beim Seitenaufruf berechnet; ein separater Zeitplaner ist dafür nicht nötig.
+
+Fälligkeiten sind reine Kalenderdaten im Format `YYYY-MM-DD`. Für Tagesgrenzen gilt `timezone`, standardmäßig **Europe/Berlin**; Sommerzeitwechsel werden als Kalenderwechsel behandelt. Die Zeitzonendaten sind im Programm eingebettet, damit auch dafür im Pi-Betrieb kein Internetzugriff nötig ist. Signatur- und Audit-Zeiten werden weiterhin in UTC gespeichert und angezeigt.
+
 ## Rechte und weitere Annahmen
 
-Lesen und Neuanlage mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für die übrigen Aktionen gelten in einer aktiven Namenssitzung folgende Rechte:
+Lesen sowie die Neuanlage von Basiseinträgen und Ideen mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für weitere Aktionen gelten in einer aktiven Namenssitzung folgende Rechte; die ersten Status- und Textregeln beziehen sich auf Basiseinträge und Ideen:
 
 | Aktion | Mitarbeiter (inkl. Azubi) | Vorgesetzter | Admin |
 | --- | --- | --- | --- |
@@ -85,21 +107,24 @@ Lesen und Neuanlage mit Erstellerwahl sind wie oben beschrieben ohne Sitzung mö
 | Status ändern | Nein | Ja | Ja |
 | Mitarbeiter-Priorität setzen/löschen | Alle Einträge | Eigene Einträge | Eigene Einträge |
 | Vorgesetzten-Priorität setzen/löschen | Nein | Alle Einträge | Alle Einträge |
+| Aufgaben zuweisen, Inhalt/Fälligkeit ändern | Nein | Ja | Ja |
+| Aufgabenstatus vor Abnahme ändern | Nur zugewiesene Aufgaben | Alle | Alle |
+| Aufgaben abnehmen und wieder öffnen | Nein | Ja | Ja |
 | Audit-Log ansehen | Nein | Ja | Ja |
 | Benutzer anlegen, umbenennen, deaktivieren, Rollen setzen | Nein | Nein | Ja |
 
 - Die optionale Namenssitzung und die Erstellerwahl verwenden weiterhin **keine Passwörter/PINs**, auch auf der separaten Admin-Anmeldeseite. Sie benennen die gewählte Person, prüfen ihre Identität jedoch nicht. Wer das Werkstattnetz erreicht, kann auch einen Admin-Namen auswählen. Nur in diesem vertrauten lokalen Netz betreiben. Eine Signatur ist Name + Serverzeit, keine kryptografische Unterschrift.
 - Rollenprüfungen erfolgen serverseitig. Inaktive Nutzer erscheinen weder in der Erstellerwahl noch in der Anmeldung. Bestehende Sitzungen berücksichtigen Deaktivierungen und Rollenänderungen sofort; öffentliches Lesen bleibt möglich. Authentifizierung und Sitzungen sind im Webpaket gekapselt und können später um PIN/Passwort ergänzt werden. Sitzungen liegen nur im Arbeitsspeicher, laufen ab und enden bei Neustart.
-- Jeder Basiseintrag beginnt mit Status `neu`. Weitere Basisstatus: `in_pruefung`, `geplant`, `erledigt`, `abgelehnt`. Modulspezifische Abläufe folgen mit den jeweiligen Modulen.
-- Signaturen und Autor bleiben unverändert, auch nach einer Benutzerumbenennung. Kommentare sind in diesem Meilenstein nach dem Absenden unveränderlich. Zeiten werden in UTC gespeichert und angezeigt.
+- Jeder Basiseintrag beginnt mit Status `neu`. Weitere Basisstatus: `in_pruefung`, `geplant`, `erledigt`, `abgelehnt`. Ideen und Aufgaben verwenden die oben beschriebenen eigenen Statusabläufe.
+- Signaturen und Autor bleiben unverändert, auch nach einer Benutzerumbenennung. Kommentare sind nach dem Absenden unveränderlich. Signatur- und Audit-Zeiten werden in UTC gespeichert und angezeigt; Aufgabenfälligkeiten verwenden lokale Kalenderdaten.
 - Änderungen an Einträgen, Kommentare und Benutzerverwaltung werden atomar mit dem Audit-Ereignis gespeichert: Akteur als ID und damaliger Name, Serverzeit, Aktion und vollständiger vorheriger/neuer Zustand. Bei einem Audit-Fehler wird die gesamte Änderung zurückgerollt. Parallele Eintragsbearbeitungen erkennen veraltete Versionen und überschreiben diese nicht.
 - Das Audit-Log ist über App und Datenbank-Trigger nur erweiterbar. Die gemeinsame Anwendungsschicht schützt alle Schreibvorgänge; direkter Zugriff auf die SQLite-Datei gehört zum vertrauenswürdigen Betrieb und ist kein unterstützter Schreibweg.
 - Eine aktive Admin-Person muss erhalten bleiben. Der letzte aktive Admin kann weder deaktiviert noch heruntergestuft werden.
-- Ideen und generische Basiseinträge einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Es gibt noch keinen Kummerkasten und keine weiteren Fachmodule. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
+- Ideen, Aufgaben und generische Basiseinträge einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Werkzeug-, Material- und Kummerkastenmodule folgen noch. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
 
 ## Bestehende Installation aktualisieren
 
-Bei einem Update von Meilenstein 1 zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Die neue versionierte Migration `002_ideas_priorities.sql` wird beim Start automatisch angewendet. IDs, Nutzer, Signaturen, Kommentare und Audit-Historie der bisherigen Einträge bleiben erhalten. Migration 001 wird nicht verändert. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
+Bei einem Update einer bestehenden Installation zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Fehlende versionierte Migrationen werden beim Start automatisch angewendet: Migration 002 ergänzt Ideen/Prioritäten, die neue Migration 003 das Aufgabenboard. IDs, Nutzer, Ideen, Signaturen, Kommentare, Prioritäten und Audit-Historie aus Meilensteinen 1 und 2 bleiben erhalten. Bereits angewendete Migrationen 001 und 002 werden nicht verändert. Alte Konfigurationen übernehmen für die neuen Angaben `timezone` und `reminder_days` automatisch die Standardwerte. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
 
 ## Datenbank und Entwicklung
 
@@ -118,6 +143,7 @@ cmd/werkstatt-hub/              Start, einmalige Admin-Einrichtung, Migrationen
 internal/config/               Lokale JSON-Konfiguration
 internal/core/                 Gemeinsame Modelle, Rechte und Prioritätsskala
 internal/ideas/                Eigenes Ideenmodell und Statusregeln
+internal/tasks/                Aufgaben, Statusrechte und Kalender-Erinnerungen
 internal/storage/              SQLite, Transaktionen und Audit-Log
 internal/storage/migrations/   Versioniertes Schema
 internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
@@ -125,8 +151,8 @@ internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
 
 Tests verwenden ausschließlich temporäre Verzeichnisse. Datenbanken, Uploads, Sicherungen, Logs, lokale Konfiguration und Geheimnisse dürfen nicht versioniert werden; `.gitignore` schützt die üblichen Pfade und Dateiformate. Beispielkonfiguration enthält ausschließlich lokale Standardwerte. Änderungen ausschließlich auf Branch `alpha`, in kleinen thematischen Commits; niemals direkt auf `main` pushen.
 
-Das Ideenboard ist das erste eigene Fachpaket und nutzt die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgen die Azubi-Aufgaben mit Erinnerungen (Meilenstein 3), danach die weiteren Fachmodule, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
+Ideenboard und Aufgabenboard sind eigene Fachpakete und nutzen die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgt die Werkzeugverwaltung (Meilenstein 4), danach die weiteren Fachmodule, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
 
-Die Tests decken Rechte, Audit-Rollback, unveränderliche Signaturen, Migration bestehender Meilenstein-1-Daten, konfigurierbare Prioritäten, Filter/Sortierung und Konflikte bei parallelen Bearbeitungen ab. Für Version 0.2.0 sind `go test -race ./...`, `go vet ./...` sowie Builds ohne CGO für Linux/AMD64 und Linux/ARM64 erfolgreich. Der vollständige Chromium-Ablauf prüft Ideen, Kommentare, Status, beide Prioritäten, Filter, Sortierung und Audit bei 320, 390, 768 und 1360 Pixeln; alle geladenen Ressourcen bleiben lokal. Zusätzlich wurde eine bestehende Meilenstein-1-Testdatenbank aktualisiert und der unveränderte Inhalt von Nutzern, Einträgen, Kommentaren und Audit-Log verglichen. Getestete Toolchain: Go 1.27.4. Der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.
+Für Version **0.3.0** sind `go test -race ./...`, `go vet ./...` sowie Builds ohne CGO für Linux/AMD64 und Linux/ARM64 erfolgreich. Die Tests prüfen Rechte, aktive Zuweisungen und Ersteller, unveränderliche Signaturen, Abnahme/Wiederöffnung, Audit-Rollback, parallele Änderungen und kalendarische Erinnerungen einschließlich Berliner Tagesgrenzen und Sommerzeit.
 
-Version 0.2.1 benötigt keine neue Datenbankmigration. Zusätzliche Tests sichern den öffentlichen Dashboardzugriff, aktive Erstellerpflicht, korrekte Signatur-/Audit-Zuordnung sowie unveränderte Sitzungen und weiterhin geschützte Aktionen ab. Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und ein echter Chromium-Ablauf mit öffentlichen Beitragsformularen bei 320–1360 Pixeln sind erfolgreich.
+Der vollständige Chromium-Ablauf deckt Zuweisung, persönliche Aufgaben und Erinnerungen, Statuswechsel, Kommentare/Prioritäten, Abnahme, Wiederöffnung und Neuzuweisung bei 320, 390, 768 und 1360 Pixeln ab. Der direkte Dashboardzugriff und die Erstellerwahl für neue Beiträge bleiben erhalten; alle geladenen Ressourcen sind lokal. Zusätzlich wurde eine bestehende Meilenstein-2-Testdatenbank aktualisiert und der unveränderte Inhalt von Nutzern, Basis-/Ideeneinträgen, Kommentaren, Prioritäten und Audit-Log geprüft. Getestete Toolchain: Go 1.27.4. Der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.
