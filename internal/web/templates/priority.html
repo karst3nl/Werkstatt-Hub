@@ -1,0 +1,3 @@
+{{define "wrench-icon"}}<svg class="wrench-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2.5h4L14.5 6l3.5 3.5L21.5 6v4L18 13.5h-4.5L7 20a2.8 2.8 0 0 1-4-4l6.5-6.5V6z"/></svg>{{end}}
+
+{{define "priority-rating"}}<div class="wrench-rating" role="img" aria-label="{{.Description}}" title="{{.Description}}"><span class="wrench-label">{{.Label}}</span><div class="wrench-display"><span class="wrench-icons" aria-hidden="true">{{range .Items}}<span class="wrench-step wrench-step-{{.Index}}{{if .Active}} wrench-step-active{{end}}">{{template "wrench-icon"}}</span>{{end}}</span><span class="wrench-value">{{.ValueText}}</span></div></div>{{end}}

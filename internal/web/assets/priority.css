@@ -1,0 +1,14 @@
+/* Five local SVG wrenches show both the rating and its green-to-red progression. */
+.wrench-rating{display:flex;flex:1 1 12rem;flex-direction:column;gap:.3rem;min-width:0;max-width:100%}
+.wrench-label{font-weight:600;overflow-wrap:anywhere}
+.wrench-display{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;min-width:0}
+.wrench-icons{display:inline-flex;align-items:center;gap:.25rem;flex:none;line-height:1}
+.wrench-step{display:inline-flex;color:#84958d}
+.wrench-glyph{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.wrench-step-active .wrench-glyph{fill:currentColor}
+.wrench-step-1.wrench-step-active{color:#177a4d}
+.wrench-step-2.wrench-step-active{color:#6e8d22}
+.wrench-step-3.wrench-step-active{color:#a77813}
+.wrench-step-4.wrench-step-active{color:#c05b17}
+.wrench-step-5.wrench-step-active{color:#b73535}
+.wrench-value{font-size:.85em;color:#52685e;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
