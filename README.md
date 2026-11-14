@@ -1,6 +1,6 @@
 # Werkstatt-Hub
 
-Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 bis 3 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie, Ideenboard mit zwei unabhängigen Prioritäten sowie ein Aufgabenboard mit Fälligkeiten und Abnahme. Oberfläche und Fehlermeldungen sind deutsch.
+Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 bis 4 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie, Ideenboard mit zwei unabhängigen Prioritäten, ein Aufgabenboard mit Fälligkeiten und Abnahme sowie Werkzeugbestand, Zustandsmeldungen und Anschaffungswünsche. Oberfläche und Fehlermeldungen sind deutsch.
 
 ## Tech-Stack
 
@@ -53,11 +53,11 @@ Für ein späteres Deployment werden nur das passende Binary, eine lokale Konfig
 
 ## Dashboard und Erstellerwahl
 
-Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Basiseinträge, Ideenboard, Aufgabenboard, Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
+Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Basiseinträge, Ideenboard, Aufgabenboard, Werkzeugbestand, Zustandsmeldungen, Anschaffungswünsche, deren Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
 
-Bei **jedem neuen Basiseintrag und jeder neuen Idee** ist im Formular ein aktiver **Ersteller** aus der Namensliste auszuwählen. Die Auswahl beginnt leer, auch bei einer bestehenden Sitzung. Name, Autor-ID und Signaturzeit werden serverseitig aus diesem Nutzer und der aktuellen Uhrzeit erzeugt. Freie Signatur- oder Zeitangaben aus dem Browser werden nicht übernommen. Fehlende, unbekannte und deaktivierte Ersteller werden abgewiesen.
+Bei **jedem neuen Basiseintrag, jeder Idee, jeder Werkzeugmeldung und jedem Anschaffungswunsch** ist im Formular ein aktiver **Ersteller** aus der Namensliste auszuwählen. Die Auswahl beginnt leer, auch bei einer bestehenden Sitzung. Name, Autor-ID und Signaturzeit werden serverseitig aus diesem Nutzer und der aktuellen Uhrzeit erzeugt. Freie Signatur- oder Zeitangaben aus dem Browser werden nicht übernommen. Fehlende, unbekannte und deaktivierte Ersteller werden abgewiesen.
 
-Die Erstellerwahl gilt ausschließlich für den neuen Beitrag: Sie erzeugt keine Anmeldung und wechselt keine bestehende Sitzung, auch bei Auswahl eines Admins. Das Audit der Neuanlage nennt den gewählten Ersteller. Zum Kommentieren, Bewerten und Bearbeiten wählt man weiterhin über **Namen wählen** den eigenen Namen; Audit und Verwaltung behalten ihre Rollenprüfungen und den separaten Admin-Zugang. Bei Basiseinträgen und Ideen können alle Autorenrollen ausgewählt werden; Rechte für spätere Bearbeitungen entstehen daraus nicht automatisch. Das Anlegen und Zuweisen einer Aufgabe erfordert dagegen eine aktive Vorgesetzten- oder Admin-Sitzung und einen entsprechend berechtigten Ersteller.
+Die Erstellerwahl gilt ausschließlich für den neuen Beitrag: Sie erzeugt keine Anmeldung und wechselt keine bestehende Sitzung, auch bei Auswahl eines Admins. Bei diesen ohne Sitzung anlegbaren Beiträgen nennt das Audit der Neuanlage den gewählten Ersteller. Zum Kommentieren, Bewerten und Bearbeiten wählt man weiterhin über **Namen wählen** den eigenen Namen; Audit und Verwaltung behalten ihre Rollenprüfungen und den separaten Admin-Zugang. Bei Basiseinträgen, Ideen, Werkzeugmeldungen und Anschaffungswünschen können alle aktiven Autorenrollen ausgewählt werden; Rechte für spätere Bearbeitungen entstehen daraus nicht automatisch. Das Anlegen und Zuweisen einer Aufgabe sowie das Anlegen und Pflegen des Werkzeugbestands erfordern dagegen eine aktive Vorgesetzten- oder Admin-Sitzung. Für neue Aufgaben und Werkzeuge wird auch ein entsprechend berechtigter Ersteller gewählt; Audit-Akteur bleibt der tatsächlich handelnde Sitzungsnutzer.
 
 ## Ideenboard und Prioritäten
 
@@ -96,13 +96,29 @@ Ohne Namenssitzung sowie für Vorgesetzte und Admins zeigt das Dashboard die all
 
 Fälligkeiten sind reine Kalenderdaten im Format `YYYY-MM-DD`. Für Tagesgrenzen gilt `timezone`, standardmäßig **Europe/Berlin**; Sommerzeitwechsel werden als Kalenderwechsel behandelt. Die Zeitzonendaten sind im Programm eingebettet, damit auch dafür im Pi-Betrieb kein Internetzugriff nötig ist. Signatur- und Audit-Zeiten werden weiterhin in UTC gespeichert und angezeigt.
 
+## Werkzeugbestand, Meldungen und Anschaffung
+
+Der **Werkzeugbestand** (`/tools`) zeigt Name, Kategorie, Standort und den offiziellen Zustand **OK**, **Verschleißt**, **Defekt** oder **Ersetzt**. Die Übersicht lässt sich nach Zustand und Kategorie filtern und nach Namen durchsuchen. Werkzeuge werden von Vorgesetzten und Admins angelegt und gepflegt. Beim Anlegen ist ein aktiver Vorgesetzter oder Admin als Ersteller zu wählen; dessen Name und Serverzeit bilden die ursprüngliche Signatur. Im Audit steht der handelnde Sitzungsnutzer. Ein ersetztes Werkzeug bleibt für seine Historie im Bestand; ein Ausleihsystem und QR-Etiketten gehören noch nicht zu diesem Modul.
+
+Über **Zustand melden** am Werkzeug können alle Nutzer ohne vorherige Anmeldung einen Beitrag mit Titel, Beschreibung, beobachtetem Zustand und ausdrücklich gewähltem aktivem Ersteller absenden. Die Meldung ist signiert und beginnt als **Neu**. Sie hat eine eigene Detailansicht (`/tool-reports/{id}`), Kommentare und beide Prioritäten. Mitarbeiter bearbeiten ihre eigenen Meldungstexte und Beobachtungen, Vorgesetzte und Admins alle Meldungen. Den Bearbeitungsstatus **Neu**, **In Prüfung** oder **Erledigt** ändern nur Vorgesetzte und Admins.
+
+Eine Meldung verändert den **offiziellen Werkzeugzustand nicht automatisch**. Offene Meldungen (**Neu** oder **In Prüfung**) werden am Werkzeug und im Dashboard sichtbar markiert, auch wenn der gepflegte Zustand noch „OK“ lautet. Vorgesetzte und Admins prüfen die Meldung, pflegen den offiziellen Zustand und schließen die Meldung ausdrücklich ab. Werkzeugzustand und Meldungsstatus bleiben getrennt nachvollziehbar.
+
+**Anschaffungswünsche** (`/purchases`) können ebenfalls ohne vorherige Anmeldung mit aktiver Erstellerwahl erfasst werden. Titel, Beschreibung und Kategorie sind Pflichtfelder; die Kategorie startet im Formular als „Allgemein“. Ein Zielstandort und ein Bezug zu einem vorhandenen Werkzeug, etwa für eine Ersatzbeschaffung, sind optional. Bei einer neuen Anschaffung ist kein Werkzeugbezug erforderlich. Der einmal gewählte Werkzeugbezug einer Meldung oder eines Wunsches bleibt unveränderlich, damit die Historie zuverlässig zugeordnet bleibt.
+
+Ein Wunsch beginnt als **Gewünscht**. Vorgesetzte und Admins setzen den Beschaffungsstatus **Gewünscht**, **Genehmigt**, **Bestellt** oder **Geliefert**; auch Korrekturen zwischen diesen Status sind erlaubt und werden auditiert. Mitarbeiter ändern Texte, Kategorie und Zielstandort ihrer eigenen Wünsche nur, solange der Wunsch **Gewünscht** ist. Danach sind diese Änderungen Vorgesetzten und Admins vorbehalten. „Geliefert“ legt keinen Werkzeugbestand automatisch an: Ein tatsächlich eingetroffenes Werkzeug wird mit seinem Namen, Standort und Zustand separat erfasst.
+
+Meldungen und Wünsche verwenden die gemeinsame Prioritätsskala, unabhängige Mitarbeiter-/Vorgesetztenwerte, Kommentare, unveränderliche Signaturen und Versionsprüfung. Filter und Sortierung berücksichtigen beide Prioritäten, einschließlich unbewerteter Einträge und starker Abweichungen. Jede tatsächliche Änderung wird atomar mit Akteur, Zeitpunkt und vorherigem/neuem Stand gespeichert; unverändertes Speichern erzeugt kein zusätzliches Audit-Ereignis.
+
+Die **Historie pro Werkzeug** zeigt ausschließlich zugehörige Änderungen am Werkzeug, verknüpfte Meldungen und Anschaffungswünsche sowie deren Kommentare. Diese Historie ist im Werkstattnetz öffentlich lesbar. Das vollständige Audit-Log mit Benutzerverwaltung und anderen Bereichen bleibt Vorgesetzten und Admins vorbehalten.
+
 ## Rechte und weitere Annahmen
 
-Lesen sowie die Neuanlage von Basiseinträgen und Ideen mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für weitere Aktionen gelten in einer aktiven Namenssitzung folgende Rechte; die ersten Status- und Textregeln beziehen sich auf Basiseinträge und Ideen:
+Lesen sowie die Neuanlage von Basiseinträgen, Ideen, Werkzeugmeldungen und Anschaffungswünschen mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für weitere Aktionen gelten in einer aktiven Namenssitzung folgende Rechte; die ersten Status- und Textregeln beziehen sich auf Basiseinträge und Ideen:
 
 | Aktion | Mitarbeiter (inkl. Azubi) | Vorgesetzter | Admin |
 | --- | --- | --- | --- |
-| Einträge und Ideen kommentieren | Ja | Ja | Ja |
+| Beiträge kommentieren | Ja | Ja | Ja |
 | Titel, Text und Ideenkategorie ändern | Eigene Einträge | Alle | Alle |
 | Status ändern | Nein | Ja | Ja |
 | Mitarbeiter-Priorität setzen/löschen | Alle Einträge | Eigene Einträge | Eigene Einträge |
@@ -110,21 +126,24 @@ Lesen sowie die Neuanlage von Basiseinträgen und Ideen mit Erstellerwahl sind w
 | Aufgaben zuweisen, Inhalt/Fälligkeit ändern | Nein | Ja | Ja |
 | Aufgabenstatus vor Abnahme ändern | Nur zugewiesene Aufgaben | Alle | Alle |
 | Aufgaben abnehmen und wieder öffnen | Nein | Ja | Ja |
-| Audit-Log ansehen | Nein | Ja | Ja |
+| Werkzeugbestand und offiziellen Zustand pflegen | Nein | Ja | Ja |
+| Werkzeugmeldungen ändern | Eigene Texte und Beobachtung | Alle, einschließlich Status | Alle, einschließlich Status |
+| Anschaffungswünsche ändern | Eigene, solange „Gewünscht“ | Alle, einschließlich Status | Alle, einschließlich Status |
+| Vollständiges Audit-Log ansehen | Nein | Ja | Ja |
 | Benutzer anlegen, umbenennen, deaktivieren, Rollen setzen | Nein | Nein | Ja |
 
 - Die optionale Namenssitzung und die Erstellerwahl verwenden weiterhin **keine Passwörter/PINs**, auch auf der separaten Admin-Anmeldeseite. Sie benennen die gewählte Person, prüfen ihre Identität jedoch nicht. Wer das Werkstattnetz erreicht, kann auch einen Admin-Namen auswählen. Nur in diesem vertrauten lokalen Netz betreiben. Eine Signatur ist Name + Serverzeit, keine kryptografische Unterschrift.
 - Rollenprüfungen erfolgen serverseitig. Inaktive Nutzer erscheinen weder in der Erstellerwahl noch in der Anmeldung. Bestehende Sitzungen berücksichtigen Deaktivierungen und Rollenänderungen sofort; öffentliches Lesen bleibt möglich. Authentifizierung und Sitzungen sind im Webpaket gekapselt und können später um PIN/Passwort ergänzt werden. Sitzungen liegen nur im Arbeitsspeicher, laufen ab und enden bei Neustart.
-- Jeder Basiseintrag beginnt mit Status `neu`. Weitere Basisstatus: `in_pruefung`, `geplant`, `erledigt`, `abgelehnt`. Ideen und Aufgaben verwenden die oben beschriebenen eigenen Statusabläufe.
+- Jeder Basiseintrag beginnt mit Status `neu`. Weitere Basisstatus: `in_pruefung`, `geplant`, `erledigt`, `abgelehnt`. Ideen, Aufgaben, Werkzeugmeldungen und Anschaffungswünsche verwenden die oben beschriebenen eigenen Statusabläufe.
 - Signaturen und Autor bleiben unverändert, auch nach einer Benutzerumbenennung. Kommentare sind nach dem Absenden unveränderlich. Signatur- und Audit-Zeiten werden in UTC gespeichert und angezeigt; Aufgabenfälligkeiten verwenden lokale Kalenderdaten.
 - Änderungen an Einträgen, Kommentare und Benutzerverwaltung werden atomar mit dem Audit-Ereignis gespeichert: Akteur als ID und damaliger Name, Serverzeit, Aktion und vollständiger vorheriger/neuer Zustand. Bei einem Audit-Fehler wird die gesamte Änderung zurückgerollt. Parallele Eintragsbearbeitungen erkennen veraltete Versionen und überschreiben diese nicht.
 - Das Audit-Log ist über App und Datenbank-Trigger nur erweiterbar. Die gemeinsame Anwendungsschicht schützt alle Schreibvorgänge; direkter Zugriff auf die SQLite-Datei gehört zum vertrauenswürdigen Betrieb und ist kein unterstützter Schreibweg.
 - Eine aktive Admin-Person muss erhalten bleiben. Der letzte aktive Admin kann weder deaktiviert noch heruntergestuft werden.
-- Ideen, Aufgaben und generische Basiseinträge einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Werkzeug-, Material- und Kummerkastenmodule folgen noch. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
+- Ideen, Aufgaben, Werkzeuge, Meldungen, Anschaffungswünsche und generische Basiseinträge einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Material- und Kummerkastenmodule folgen noch. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
 
 ## Bestehende Installation aktualisieren
 
-Bei einem Update einer bestehenden Installation zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Fehlende versionierte Migrationen werden beim Start automatisch angewendet: Migration 002 ergänzt Ideen/Prioritäten, die neue Migration 003 das Aufgabenboard. IDs, Nutzer, Ideen, Signaturen, Kommentare, Prioritäten und Audit-Historie aus Meilensteinen 1 und 2 bleiben erhalten. Bereits angewendete Migrationen 001 und 002 werden nicht verändert. Alte Konfigurationen übernehmen für die neuen Angaben `timezone` und `reminder_days` automatisch die Standardwerte. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
+Bei einem Update einer bestehenden Installation zuerst die App stoppen und das vollständige Datenverzeichnis sichern. Dann Branch `alpha` aktualisieren, das neue Programm bauen bzw. mit `go run` starten und dieselbe Konfiguration sowie Datenbank verwenden. **`init` nicht erneut ausführen.** Fehlende versionierte Migrationen werden beim Start automatisch angewendet: Migration 002 ergänzt Ideen/Prioritäten, Migration 003 das Aufgabenboard und die neue Migration 004 die Werkzeugverwaltung. IDs, Nutzer, Basis- und Ideeneinträge, Aufgaben einschließlich Abnahmen, Signaturen, Kommentare, Prioritäten und Audit-Historie aus Meilensteinen 1 bis 3 bleiben erhalten. Bereits angewendete Migrationen 001 bis 003 werden nicht verändert. Meilenstein 4 benötigt keine neuen Konfigurationswerte; alte Konfigurationen übernehmen für bisher fehlende Angaben `timezone` und `reminder_days` automatisch die Standardwerte. Eine bereits aktualisierte Datenbank benötigt mindestens diese Programmversion; für eine Rückkehr zum alten Programm die vorherige Sicherung verwenden.
 
 ## Datenbank und Entwicklung
 
@@ -144,6 +163,7 @@ internal/config/               Lokale JSON-Konfiguration
 internal/core/                 Gemeinsame Modelle, Rechte und Prioritätsskala
 internal/ideas/                Eigenes Ideenmodell und Statusregeln
 internal/tasks/                Aufgaben, Statusrechte und Kalender-Erinnerungen
+internal/tooling/              Werkzeugbestand, Zustandsmeldungen und Anschaffung
 internal/storage/              SQLite, Transaktionen und Audit-Log
 internal/storage/migrations/   Versioniertes Schema
 internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
@@ -151,8 +171,8 @@ internal/web/                  HTTP, Sitzungen, Templates, lokale Assets
 
 Tests verwenden ausschließlich temporäre Verzeichnisse. Datenbanken, Uploads, Sicherungen, Logs, lokale Konfiguration und Geheimnisse dürfen nicht versioniert werden; `.gitignore` schützt die üblichen Pfade und Dateiformate. Beispielkonfiguration enthält ausschließlich lokale Standardwerte. Änderungen ausschließlich auf Branch `alpha`, in kleinen thematischen Commits; niemals direkt auf `main` pushen.
 
-Ideenboard und Aufgabenboard sind eigene Fachpakete und nutzen die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgt die Werkzeugverwaltung (Meilenstein 4), danach die weiteren Fachmodule, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
+Ideenboard, Aufgabenboard und Werkzeugverwaltung sind eigene Fachpakete und nutzen die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgen Verbrauchsmaterialien mit Bestandswarnungen und Abhaken (Meilenstein 5), danach Kummerkasten, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
 
-Für Version **0.3.0** sind `go test -race ./...`, `go vet ./...` sowie Builds ohne CGO für Linux/AMD64 und Linux/ARM64 erfolgreich. Die Tests prüfen Rechte, aktive Zuweisungen und Ersteller, unveränderliche Signaturen, Abnahme/Wiederöffnung, Audit-Rollback, parallele Änderungen und kalendarische Erinnerungen einschließlich Berliner Tagesgrenzen und Sommerzeit.
+Für Version **0.4.0** sind `go test -race ./...`, `go vet ./...` sowie Builds ohne CGO für Linux/AMD64 und Linux/ARM64 erfolgreich. Die Tests prüfen Rollen und aktive Ersteller, unveränderliche Signaturen, die Trennung von Werkzeugzustand und Meldung, Beschaffungsrechte, vollständige Prioritäts-Snapshots, begrenzte öffentliche Historien, Audit-Rollback und konkurrierende Bearbeitungen. Migration 004 ist mit bestehenden Aufgaben einschließlich signierter Abnahme, Kommentaren, Prioritäten und unveränderten Audit-Bytes geprüft.
 
-Der vollständige Chromium-Ablauf deckt Zuweisung, persönliche Aufgaben und Erinnerungen, Statuswechsel, Kommentare/Prioritäten, Abnahme, Wiederöffnung und Neuzuweisung bei 320, 390, 768 und 1360 Pixeln ab. Der direkte Dashboardzugriff und die Erstellerwahl für neue Beiträge bleiben erhalten; alle geladenen Ressourcen sind lokal. Zusätzlich wurde eine bestehende Meilenstein-2-Testdatenbank aktualisiert und der unveränderte Inhalt von Nutzern, Basis-/Ideeneinträgen, Kommentaren, Prioritäten und Audit-Log geprüft. Getestete Toolchain: Go 1.27.4. Der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.
+Der vollständige Chromium-Ablauf deckt Werkzeuganlage, Zustandsmeldung, offizielle Zustandspflege, Kommentieren/Priorisieren, Anschaffung bis zur Lieferung, Historienbegrenzung sowie Filter, Sortierung und Suche bei 320, 390, 768 und 1360 Pixeln ab. Dashboard und neue Meldungen/Wünsche sind direkt erreichbar; Erstellerwahl erzeugt keine Sitzung. Alle geladenen Ressourcen sind lokal. Zusätzlich wurde eine bestehende Meilenstein-3-Testdatenbank aktualisiert und der unveränderte Inhalt der bisherigen Tabellen verglichen. Getestete Toolchain: Go 1.27.4. Der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.

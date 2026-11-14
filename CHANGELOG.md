@@ -2,6 +2,24 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.4.0 – 2026-11-14
+
+### Hinzugefügt
+
+- Öffentlicher Werkzeugbestand mit Name, Kategorie, Standort, offiziellem Zustand und Filter-/Suchfunktionen.
+- Signierte Zustandsmeldungen mit Bearbeitungsstatus, Kommentaren und beiden Prioritäten; offene Meldungen werden am Werkzeug und im Dashboard markiert.
+- Anschaffungswünsche mit Erstellerwahl, optionalem Werkzeugbezug und Zielstandort sowie Status „Gewünscht“, „Genehmigt“, „Bestellt“ und „Geliefert“.
+- Rollenabhängige Pflege des Werkzeugbestands und Beschaffungsstatus; Mitarbeiter bearbeiten eigene Wünsche nur im Status „Gewünscht“.
+- Werkzeugbezogene Historie für Bestandsänderungen, verknüpfte Meldungen, Wünsche und Kommentare, getrennt vom geschützten vollständigen Audit-Log.
+- Gemeinsame Signaturen, Prioritätsfilter und atomare Audit-/Versionsprüfung auch für Werkzeugmeldungen und Anschaffungswünsche.
+- Migration 004 zur Erweiterung des Schemas unter Erhalt bisheriger Daten einschließlich Aufgabenabnahmen.
+
+### Annahmen
+
+- Zustandsmeldungen ändern den offiziellen Werkzeugzustand nicht automatisch; Vorgesetzte oder Admins prüfen die Meldung und pflegen den Bestand ausdrücklich.
+- Ein Werkzeugbezug bleibt nach der Anlage unveränderlich. „Geliefert“ erzeugt keinen Inventareintrag; neue Werkzeuge werden separat erfasst.
+- Öffentliche Meldungs- und Wunscherstellung verwendet die Erstellerwahl ohne Sitzungswechsel. Das Anlegen eines Werkzeugs erfordert eine berechtigte Sitzung; Signatur und handelnder Audit-Akteur können sich unterscheiden.
+
 ## 0.3.0 – 2026-11-14
 
 ### Hinzugefügt
