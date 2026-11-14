@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"werkstatt-hub/internal/core"
+	"werkstatt-hub/internal/ideas"
 	"werkstatt-hub/internal/storage"
 )
 
@@ -55,18 +56,29 @@ type app struct {
 }
 
 type page struct {
-	Title      string
-	Current    *core.User
-	CSRF       string
-	AdminLogin bool
-	Users      []core.User
-	Entries    []core.Entry
-	Entry      core.Entry
-	Comments   []core.Comment
-	Events     []core.AuditEvent
-	CanEdit    bool
-	CanManage  bool
-	Editing    bool
+	Title                 string
+	Current               *core.User
+	CSRF                  string
+	AdminLogin            bool
+	Users                 []core.User
+	Entries               []core.Entry
+	Entry                 core.Entry
+	Comments              []core.Comment
+	Events                []core.AuditEvent
+	CanEdit               bool
+	CanManage             bool
+	Editing               bool
+	IdeaMode              bool
+	Category              string
+	BasePath              string
+	Ideas                 []ideas.Idea
+	Categories            []string
+	Filter                ideas.Filter
+	FilterEmployee        string
+	FilterSupervisor      string
+	Scale                 core.PriorityScale
+	CanEmployeePriority   bool
+	CanSupervisorPriority bool
 }
 
 // New builds a handler with no external assets or services.
@@ -75,13 +87,16 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 		options.SessionTTL = 12 * time.Hour
 	}
 	t, err := template.New("app").Funcs(template.FuncMap{
-		"date":    func(t time.Time) string { return t.UTC().Format("02.01.2006 15:04:05 UTC") },
-		"role":    roleLabel,
-		"status":  statusLabel,
-		"admin":   core.CanAdmin,
-		"manager": core.CanManage,
-		"action":  auditAction,
-		"entity":  auditEntity,
+		"date":             func(t time.Time) string { return t.UTC().Format("02.01.2006 15:04:05 UTC") },
+		"role":             roleLabel,
+		"status":           statusLabel,
+		"admin":            core.CanAdmin,
+		"manager":          core.CanManage,
+		"action":           auditAction,
+		"entity":           auditEntity,
+		"priority":         priorityValue,
+		"prioritySelected": prioritySelected,
+		"diverges":         store.PriorityScale().Diverges,
 	}).ParseFS(files, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("templates: %w", err)
@@ -105,6 +120,15 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("GET /entries/{id}/edit", a.auth(a.editEntry))
 	mux.HandleFunc("POST /entries/{id}/edit", a.auth(a.updateEntry))
 	mux.HandleFunc("POST /entries/{id}/comments", a.auth(a.comment))
+	mux.HandleFunc("POST /entries/{id}/priority", a.auth(a.setPriority))
+	mux.HandleFunc("GET /ideas", a.auth(a.ideaBoard))
+	mux.HandleFunc("GET /ideas/new", a.auth(a.newIdea))
+	mux.HandleFunc("POST /ideas/new", a.auth(a.createIdea))
+	mux.HandleFunc("GET /ideas/{id}", a.auth(a.idea))
+	mux.HandleFunc("GET /ideas/{id}/edit", a.auth(a.editIdea))
+	mux.HandleFunc("POST /ideas/{id}/edit", a.auth(a.updateIdea))
+	mux.HandleFunc("POST /ideas/{id}/comments", a.auth(a.ideaComment))
+	mux.HandleFunc("POST /ideas/{id}/priority", a.auth(a.setPriority))
 	mux.HandleFunc("GET /audit", a.auth(a.audit))
 	mux.HandleFunc("GET /admin/users", a.auth(a.users))
 	mux.HandleFunc("POST /admin/users", a.auth(a.createUser))
@@ -135,6 +159,8 @@ func statusLabel(status string) string {
 		return "Geplant"
 	case "erledigt":
 		return "Erledigt"
+	case "umgesetzt":
+		return "Umgesetzt"
 	case "abgelehnt":
 		return "Abgelehnt"
 	default:
@@ -148,6 +174,14 @@ func auditAction(action string) string {
 		return "Eintrag erstellt"
 	case "entry.update":
 		return "Eintrag geändert"
+	case "entry.priority":
+		return "Eintragspriorität geändert"
+	case "idea.create":
+		return "Idee erstellt"
+	case "idea.update":
+		return "Idee geändert"
+	case "idea.priority":
+		return "Ideenpriorität geändert"
 	case "comment.create":
 		return "Kommentar erstellt"
 	case "user.create":
@@ -165,6 +199,8 @@ func auditEntity(entity string) string {
 	switch entity {
 	case "entry":
 		return "Eintrag"
+	case "idea":
+		return "Idee"
 	case "user":
 		return "Nutzer"
 	case "comment":
@@ -259,6 +295,15 @@ func (a *app) protect(next http.Handler) http.Handler {
 
 func (a *app) render(w http.ResponseWriter, r *http.Request, name string, p page) {
 	p.CSRF, _ = r.Context().Value(csrfKey{}).(string)
+	p.Scale = a.store.PriorityScale()
+	p.BasePath = "/entries"
+	if p.IdeaMode {
+		p.BasePath = "/ideas"
+	}
+	if p.Current != nil {
+		p.CanEmployeePriority = core.CanSetEmployeePriority(*p.Current, p.Entry)
+		p.CanSupervisorPriority = core.CanSetSupervisorPriority(*p.Current)
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.templates.ExecuteTemplate(w, name, p); err != nil {
 		log.Printf("render template %s: %v", name, err)
@@ -272,7 +317,7 @@ func (a *app) fail(w http.ResponseWriter, err error) {
 	case errors.Is(err, core.ErrNotFound):
 		http.Error(w, "Nicht gefunden.", http.StatusNotFound)
 	case errors.Is(err, core.ErrValidation):
-		http.Error(w, "Bitte gültige Angaben verwenden. Titel und Name dürfen nicht leer sein; Texte müssen innerhalb der angezeigten Grenzen liegen.", http.StatusBadRequest)
+		http.Error(w, "Bitte gültige Angaben verwenden. Name, Titel und Kategorie dürfen nicht leer sein. Texte und Prioritäten müssen innerhalb der angezeigten Grenzen liegen.", http.StatusBadRequest)
 	case errors.Is(err, core.ErrConflict):
 		http.Error(w, "Der Eintrag wurde inzwischen geändert oder die Änderung ist nicht möglich. Bitte Seite neu laden.", http.StatusConflict)
 	default:
@@ -401,7 +446,15 @@ func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.fail(w, err)
 		return
 	}
-	a.render(w, r, "home", page{Title: "Werkstatt-Hub", Current: &u, Entries: entries})
+	latestIdeas, err := a.store.Ideas(r.Context(), u.ID, ideas.Filter{})
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	if len(latestIdeas) > 3 {
+		latestIdeas = latestIdeas[:3]
+	}
+	a.render(w, r, "home", page{Title: "Werkstatt-Hub", Current: &u, Entries: entries, Ideas: latestIdeas})
 }
 
 func (a *app) newEntry(w http.ResponseWriter, r *http.Request, u core.User) {
@@ -436,6 +489,10 @@ func (a *app) entry(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.fail(w, err)
 		return
 	}
+	if e.Module == "idee" {
+		http.Redirect(w, r, fmt.Sprintf("/ideas/%d", id), http.StatusSeeOther)
+		return
+	}
 	comments, err := a.store.Comments(r.Context(), u.ID, id)
 	if err != nil {
 		a.fail(w, err)
@@ -453,6 +510,10 @@ func (a *app) editEntry(w http.ResponseWriter, r *http.Request, u core.User) {
 	e, err := a.store.Entry(r.Context(), u.ID, id)
 	if err != nil {
 		a.fail(w, err)
+		return
+	}
+	if e.Module == "idee" {
+		http.Redirect(w, r, fmt.Sprintf("/ideas/%d/edit", id), http.StatusSeeOther)
 		return
 	}
 	if !core.CanEditEntry(u, e) {

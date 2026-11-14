@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"werkstatt-hub/internal/config"
+	"werkstatt-hub/internal/core"
 	"werkstatt-hub/internal/storage"
 	"werkstatt-hub/internal/web"
 )
@@ -62,7 +63,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if err != nil {
 		return err
 	}
-	store, err := storage.Open(cfg.Database)
+	store, err := storage.OpenWithOptions(cfg.Database, storage.Options{PriorityScale: core.PriorityScale{Min: cfg.PriorityMin, Max: cfg.PriorityMax}})
 	if err != nil {
 		return fmt.Errorf("Datenbank öffnen: %w", err)
 	}

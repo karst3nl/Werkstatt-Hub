@@ -2,5 +2,7 @@
   "listen": "127.0.0.1:8080",
   "database": "../werkstatt-hub-data/werkstatt-hub.db",
   "session_ttl": "12h",
-  "secure_cookies": false
+  "secure_cookies": false,
+  "priority_min": 1,
+  "priority_max": 5
 }

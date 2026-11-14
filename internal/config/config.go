@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"werkstatt-hub/internal/core"
 )
 
 type Config struct {
@@ -16,10 +18,12 @@ type Config struct {
 	Database      string `json:"database"`
 	SessionTTL    string `json:"session_ttl"`
 	SecureCookies bool   `json:"secure_cookies"`
+	PriorityMin   int    `json:"priority_min"`
+	PriorityMax   int    `json:"priority_max"`
 }
 
 func Default() Config {
-	return Config{Listen: "127.0.0.1:8080", Database: "../werkstatt-hub-data/werkstatt-hub.db", SessionTTL: "12h"}
+	return Config{Listen: "127.0.0.1:8080", Database: "../werkstatt-hub-data/werkstatt-hub.db", SessionTTL: "12h", PriorityMin: 1, PriorityMax: 5}
 }
 
 // Load uses defaults when path is empty; an explicitly named file must exist.
@@ -49,6 +53,9 @@ func Load(path string) (Config, error) {
 	ttl, err := time.ParseDuration(c.SessionTTL)
 	if err != nil || ttl <= 0 || ttl > 7*24*time.Hour {
 		return c, fmt.Errorf("session_ttl muss zwischen 0 und 168h liegen")
+	}
+	if !(core.PriorityScale{Min: c.PriorityMin, Max: c.PriorityMax}).Valid() {
+		return c, fmt.Errorf("priority_min und priority_max müssen 1 <= Minimum < Maximum <= 100 erfüllen")
 	}
 	return c, nil
 }
