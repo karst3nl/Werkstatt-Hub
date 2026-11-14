@@ -2,6 +2,16 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.2.1 – 2026-11-14
+
+### Geändert
+
+- Website öffnet direkt das Dashboard; Basiseinträge, Ideen und Kommentare sind ohne Anmeldung lesbar.
+- Jedes neue Beitragsformular fragt nach einem aktiven Ersteller. Die Auswahl bestimmt die unveränderliche Signatur und den Audit-Akteur, ohne eine Sitzung zu erzeugen oder zu wechseln.
+- Namenssitzung bleibt für Kommentare, Bearbeitungen und Prioritäten sowie rollenabhängige Verwaltungsaktionen bestehen.
+- Abmeldung führt zum Dashboard; abgelaufene oder deaktivierte Sitzungen blockieren öffentliche Ansichten nicht.
+- Tests für öffentlichen Zugriff, ungültige Ersteller, Signaturen/Audit, Sitzungsgrenzen und spätere private Module ergänzt. Keine neue Datenbankmigration notwendig.
+
 ## 0.2.0 – 2026-11-14
 
 ### Hinzugefügt

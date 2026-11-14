@@ -31,7 +31,9 @@ Nutzer: Mitarbeiter, Azubis und Vorgesetzte. Sprache der Oberfläche: **Deutsch*
 
 ## 4. Rollen und Anmeldung
 - Rollen: **Mitarbeiter** (inkl. Azubis), **Vorgesetzter**, **Admin**.
-- **Anmeldung (erste Version):** einfache Auswahl des eigenen Namens aus einer Liste, kein Passwort. Das ist bewusst simpel, weil die App nur im Werkstattnetz läuft.
+- **Startseite ohne Anmeldung:** Beim Aufrufen der App öffnet sich direkt das Dashboard. Basiseinträge, Ideenboard, Detailansichten und vorhandene Kommentare sind im Werkstattnetz ohne Namenssitzung lesbar.
+- **Erstellerwahl pro neuem Beitrag:** Beim Erstellen eines Basiseintrags oder einer Idee wird ein aktiver Ersteller aus der Namensliste ausdrücklich ausgewählt. Die Auswahl gilt nur für diesen Beitrag, erzeugt keine Sitzung und wechselt keine vorhandene Sitzung. Sie bestimmt Autor, Signatur und Audit-Akteur der Neuanlage.
+- **Optionale Namenssitzung:** Zum Kommentieren, Bewerten und Bearbeiten wird weiterhin der eigene Name aus einer Liste gewählt, ohne Passwort. Das ist bewusst simpel, weil die App nur im Werkstattnetz läuft. Geschützte Aktionen behalten ihre Rollenprüfungen.
 - Den Auth-Teil so kapseln, dass später PIN oder Passwort ergänzt werden kann, ohne den Rest umzubauen.
 - Admin-Zugang separat (Benutzer anlegen, deaktivieren, Rollen setzen, Einstellungen).
 
@@ -120,4 +122,5 @@ Passwörter oder PIN, Benachrichtigungen (Mail/Push), Foto-Anzeige in der Oberfl
 - **Meilenstein 2 umgesetzt:** eigenes Ideenmodell mit Kategorie und Status bis „umgesetzt“, gemeinsames Prioritätssystem mit konfigurierbarer Skala, Filtern/Sortieren und sichtbarer starker Abweichung. Prioritätsänderungen sind versioniert und atomar auditiert.
 - Migration 002 erhält bestehende Meilenstein-1-Daten. Kategorien sind zunächst freie Pflichttexte; die genaue Rechtematrix und gemeinsame Werte ohne Abstimmung sind in `README.md` dokumentiert.
 - Meilenstein-2-Rechte, Prioritätsänderungen, Filter/Sortierung, Audit-Rollback und Migration mit Bestandsdaten getestet. Race-Tests, `go vet`, Chromium-Ablauf bei 320–1360 Pixeln und ARM64-Build erfolgreich.
+- Ablaufkorrektur nach Nutzerwunsch: Dashboard und öffentliche Eintragsansichten direkt erreichbar; Erstellerpflichtwahl für jede Neuanlage, ohne impliziten Sitzungswechsel. Signaturen und Audit bleiben serverseitig, geschützte Aktionen weiterhin rollenabhängig.
 - **Nächster fachlicher Schritt: Meilenstein 3**, Azubi-Aufgabenboard mit Erinnerungen.

@@ -1,6 +1,6 @@
 # Werkstatt-Hub
 
-Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 und 2 sind umgesetzt: Nutzerauswahl, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie sowie ein Ideenboard mit zwei unabhängigen Prioritäten. Oberfläche und Fehlermeldungen sind deutsch.
+Lokale Webapp für eine KFZ-Werkstatt. Meilensteine 1 und 2 sind umgesetzt: direkt zugängliches Dashboard, Erstellerwahl pro neuem Beitrag, Rollen, signierte Einträge mit Kommentaren und Änderungshistorie sowie ein Ideenboard mit zwei unabhängigen Prioritäten. Oberfläche und Fehlermeldungen sind deutsch.
 
 ## Tech-Stack
 
@@ -18,7 +18,7 @@ go run ./cmd/werkstatt-hub init --admin "Werkstatt Admin"
 go run ./cmd/werkstatt-hub serve
 ```
 
-Öffnen: **http://127.0.0.1:8080**. Beim ersten Start über **Admin-Anmeldung** (`/admin/login`) den eingerichteten Admin wählen. Unter **Benutzerverwaltung** Mitarbeiter und Vorgesetzte anlegen. Diese erscheinen in der normalen Namensliste. Es werden keine Beispielnutzer oder Einträge automatisch angelegt. `init` funktioniert ausschließlich bei einer noch leeren Benutzerliste; erneuter Aufruf überschreibt nichts.
+Öffnen: **http://127.0.0.1:8080**. Das Dashboard erscheint direkt ohne Anmeldung. Zum Einrichten über **Admin** (`/admin/login`) den eingerichteten Admin wählen. Unter **Benutzerverwaltung** Mitarbeiter und Vorgesetzte anlegen. Diese erscheinen bei der Erstellerwahl in neuen Beiträgen und in der optionalen Namensauswahl für Bearbeitungen. Es werden keine Beispielnutzer oder Einträge automatisch angelegt. `init` funktioniert ausschließlich bei einer noch leeren Benutzerliste; erneuter Aufruf überschreibt nichts.
 
 Standardmäßig liegen sämtliche Laufzeitdaten **außerhalb des Checkouts** unter `../werkstatt-hub-data/werkstatt-hub.db`. Alle relativen Pfade beziehen sich auf das aktuelle Arbeitsverzeichnis, nicht auf den Ort der Konfigurationsdatei. SQLite erzeugt bei laufendem Betrieb gegebenenfalls zusätzliche WAL-/SHM-Dateien im selben Verzeichnis.
 
@@ -49,13 +49,21 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/werkstatt-hub-linux-arm64 
 
 Für ein späteres Deployment werden nur das passende Binary, eine lokale Konfiguration und ein beschreibbares Datenverzeichnis benötigt. Auf dem Pi einen festen Arbeitsordner oder absolute Datenbankpfade verwenden. Das Programm beendet HTTP-Verbindungen bei SIGINT/SIGTERM geordnet. systemd-Service und automatisierte lokale/NAS-Backups folgen in Meilenstein 8. Bis dahin zum Sichern die App stoppen und das vollständige Datenverzeichnis kopieren.
 
+## Dashboard und Erstellerwahl
+
+Die Startseite öffnet unmittelbar das **Werkstatt-Dashboard**, ohne Anmeldefenster. Basiseinträge, Ideenboard, Detailansichten und vorhandene Kommentare können im Werkstattnetz ohne Namenssitzung gelesen werden. Auch nach Abmeldung, abgelaufener Sitzung oder Deaktivierung eines zuvor gewählten Namens bleibt das Dashboard erreichbar.
+
+Bei **jedem neuen Basiseintrag und jeder neuen Idee** ist im Formular ein aktiver **Ersteller** aus der Namensliste auszuwählen. Die Auswahl beginnt leer, auch bei einer bestehenden Sitzung. Name, Autor-ID und Signaturzeit werden serverseitig aus diesem Nutzer und der aktuellen Uhrzeit erzeugt. Freie Signatur- oder Zeitangaben aus dem Browser werden nicht übernommen. Fehlende, unbekannte und deaktivierte Ersteller werden abgewiesen.
+
+Die Erstellerwahl gilt ausschließlich für den neuen Beitrag: Sie erzeugt keine Anmeldung und wechselt keine bestehende Sitzung, auch bei Auswahl eines Admins. Das Audit der Neuanlage nennt den gewählten Ersteller. Zum Kommentieren, Bewerten und Bearbeiten wählt man weiterhin über **Namen wählen** den eigenen Namen; Audit und Verwaltung behalten ihre Rollenprüfungen und den separaten Admin-Zugang. Alle Autorenrollen können ausgewählt werden; Rechte für spätere Bearbeitungen entstehen daraus nicht automatisch.
+
 ## Ideenboard und Prioritäten
 
 Über **Ideenboard** (`/ideas`) neue Ideen mit Titel, Beschreibung und Kategorie vorschlagen. Kategorien sind vorerst frei benannte Pflichtfelder mit höchstens 100 Zeichen; bereits verwendete Kategorien werden vorgeschlagen. Der Startwert im Formular ist „Allgemein“. Eine zentrale Kategorienverwaltung folgt in Meilenstein 7.
 
-Eine Idee beginnt als **Neu**. Vorgesetzte und Admins können den Status auf **In Prüfung**, **Geplant**, **Umgesetzt** oder **Abgelehnt** setzen. Autor und ursprüngliche Signatur bleiben erhalten. Titel, Beschreibung, Kategorie, Status und Prioritäten verwenden dieselbe Versionsprüfung, damit veraltete Formulare keine inzwischen erfolgte Änderung überschreiben.
+Beim Anlegen einer Idee ist wie bei einem Basiseintrag der Ersteller ausdrücklich auszuwählen. Eine Idee beginnt als **Neu**. Vorgesetzte und Admins können den Status auf **In Prüfung**, **Geplant**, **Umgesetzt** oder **Abgelehnt** setzen. Autor und ursprüngliche Signatur bleiben erhalten. Titel, Beschreibung, Kategorie, Status und Prioritäten verwenden dieselbe Versionsprüfung, damit veraltete Formulare keine inzwischen erfolgte Änderung überschreiben.
 
-Beide Prioritäten sind für alle aktiven Nutzer sichtbar und haben dieselbe konfigurierbare Skala. Größere Zahlen bedeuten höhere Priorität. Die Werte können auch bei den bisherigen Basiseinträgen gesetzt werden:
+Beide Prioritäten sind ohne Anmeldung im Werkstattnetz sichtbar und haben dieselbe konfigurierbare Skala. Größere Zahlen bedeuten höhere Priorität. Die Werte können auch bei den bisherigen Basiseinträgen gesetzt werden:
 
 - **Mitarbeiter-Priorität:** Mitarbeiter dürfen sie bei allen Einträgen setzen. Der jeweilige Ersteller darf sie unabhängig von seiner Rolle bei eigenen Einträgen setzen. Vorgesetzte und Admins dürfen den Mitarbeiterwert anderer Ersteller nicht überschreiben.
 - **Vorgesetzten-Priorität:** Vorgesetzte und Admins dürfen sie bei allen Einträgen setzen.
@@ -68,11 +76,11 @@ Die Skala wird über `priority_min` und `priority_max` in der lokalen JSON-Konfi
 
 ## Rechte und weitere Annahmen
 
-Die AGENTS.md beschreibt die Rollen, aber noch keine vollständige Rechtematrix. Deshalb gelten diese einfachen Annahmen:
+Lesen und Neuanlage mit Erstellerwahl sind wie oben beschrieben ohne Sitzung möglich. Für die übrigen Aktionen gelten in einer aktiven Namenssitzung folgende Rechte:
 
 | Aktion | Mitarbeiter (inkl. Azubi) | Vorgesetzter | Admin |
 | --- | --- | --- | --- |
-| Basiseinträge lesen, erstellen und kommentieren | Ja | Ja | Ja |
+| Einträge und Ideen kommentieren | Ja | Ja | Ja |
 | Titel, Text und Ideenkategorie ändern | Eigene Einträge | Alle | Alle |
 | Status ändern | Nein | Ja | Ja |
 | Mitarbeiter-Priorität setzen/löschen | Alle Einträge | Eigene Einträge | Eigene Einträge |
@@ -80,14 +88,14 @@ Die AGENTS.md beschreibt die Rollen, aber noch keine vollständige Rechtematrix.
 | Audit-Log ansehen | Nein | Ja | Ja |
 | Benutzer anlegen, umbenennen, deaktivieren, Rollen setzen | Nein | Nein | Ja |
 
-- Die Anmeldung ist die ausdrücklich gewünschte **Namensauswahl ohne Passwort/PIN**, auch auf der separaten Admin-Anmeldeseite. Sie identifiziert die gewählte Person, prüft ihre Identität jedoch nicht. Wer das Werkstattnetz erreicht, kann auch einen Admin-Namen auswählen. Nur in diesem vertrauten lokalen Netz betreiben. Eine Signatur ist Name + Serverzeit, keine kryptografische Unterschrift.
-- Rollenprüfungen erfolgen serverseitig. Inaktive Nutzer können sich nicht anmelden; bestehende Sitzungen berücksichtigen Deaktivierungen und Rollenänderungen sofort. Authentifizierung und Sitzungen sind im Webpaket gekapselt und können später um PIN/Passwort ergänzt werden. Sitzungen liegen nur im Arbeitsspeicher, laufen ab und enden bei Neustart.
+- Die optionale Namenssitzung und die Erstellerwahl verwenden weiterhin **keine Passwörter/PINs**, auch auf der separaten Admin-Anmeldeseite. Sie benennen die gewählte Person, prüfen ihre Identität jedoch nicht. Wer das Werkstattnetz erreicht, kann auch einen Admin-Namen auswählen. Nur in diesem vertrauten lokalen Netz betreiben. Eine Signatur ist Name + Serverzeit, keine kryptografische Unterschrift.
+- Rollenprüfungen erfolgen serverseitig. Inaktive Nutzer erscheinen weder in der Erstellerwahl noch in der Anmeldung. Bestehende Sitzungen berücksichtigen Deaktivierungen und Rollenänderungen sofort; öffentliches Lesen bleibt möglich. Authentifizierung und Sitzungen sind im Webpaket gekapselt und können später um PIN/Passwort ergänzt werden. Sitzungen liegen nur im Arbeitsspeicher, laufen ab und enden bei Neustart.
 - Jeder Basiseintrag beginnt mit Status `neu`. Weitere Basisstatus: `in_pruefung`, `geplant`, `erledigt`, `abgelehnt`. Modulspezifische Abläufe folgen mit den jeweiligen Modulen.
 - Signaturen und Autor bleiben unverändert, auch nach einer Benutzerumbenennung. Kommentare sind in diesem Meilenstein nach dem Absenden unveränderlich. Zeiten werden in UTC gespeichert und angezeigt.
 - Änderungen an Einträgen, Kommentare und Benutzerverwaltung werden atomar mit dem Audit-Ereignis gespeichert: Akteur als ID und damaliger Name, Serverzeit, Aktion und vollständiger vorheriger/neuer Zustand. Bei einem Audit-Fehler wird die gesamte Änderung zurückgerollt. Parallele Eintragsbearbeitungen erkennen veraltete Versionen und überschreiben diese nicht.
 - Das Audit-Log ist über App und Datenbank-Trigger nur erweiterbar. Die gemeinsame Anwendungsschicht schützt alle Schreibvorgänge; direkter Zugriff auf die SQLite-Datei gehört zum vertrauenswürdigen Betrieb und ist kein unterstützter Schreibweg.
 - Eine aktive Admin-Person muss erhalten bleiben. Der letzte aktive Admin kann weder deaktiviert noch heruntergestuft werden.
-- Ideen und generische Basiseinträge sind für alle aktiven Nutzer sichtbar. Es gibt noch keinen Kummerkasten und keine weiteren Fachmodule. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
+- Ideen und generische Basiseinträge einschließlich Kommentaren sind ohne Anmeldung im Werkstattnetz sichtbar. Es gibt noch keinen Kummerkasten und keine weiteren Fachmodule. Vertrauliche Kummerkasten-Inhalte erst im entsprechend geschützten späteren Modul erfassen.
 
 ## Bestehende Installation aktualisieren
 
@@ -120,3 +128,5 @@ Tests verwenden ausschließlich temporäre Verzeichnisse. Datenbanken, Uploads, 
 Das Ideenboard ist das erste eigene Fachpaket und nutzt die gemeinsame Benutzer-, Signatur-, Kommentar-, Prioritäts- und Audit-Basis. Als nächster Schritt folgen die Azubi-Aufgaben mit Erinnerungen (Meilenstein 3), danach die weiteren Fachmodule, erweiterte Administration/Uploads und Pi-Betrieb gemäß `AGENTS.md`.
 
 Die Tests decken Rechte, Audit-Rollback, unveränderliche Signaturen, Migration bestehender Meilenstein-1-Daten, konfigurierbare Prioritäten, Filter/Sortierung und Konflikte bei parallelen Bearbeitungen ab. Für Version 0.2.0 sind `go test -race ./...`, `go vet ./...` sowie Builds ohne CGO für Linux/AMD64 und Linux/ARM64 erfolgreich. Der vollständige Chromium-Ablauf prüft Ideen, Kommentare, Status, beide Prioritäten, Filter, Sortierung und Audit bei 320, 390, 768 und 1360 Pixeln; alle geladenen Ressourcen bleiben lokal. Zusätzlich wurde eine bestehende Meilenstein-1-Testdatenbank aktualisiert und der unveränderte Inhalt von Nutzern, Einträgen, Kommentaren und Audit-Log verglichen. Getestete Toolchain: Go 1.27.4. Der ARM64-Build wurde noch nicht auf echter Pi-Hardware ausgeführt.
+
+Version 0.2.1 benötigt keine neue Datenbankmigration. Zusätzliche Tests sichern den öffentlichen Dashboardzugriff, aktive Erstellerpflicht, korrekte Signatur-/Audit-Zuordnung sowie unveränderte Sitzungen und weiterhin geschützte Aktionen ab. Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und ein echter Chromium-Ablauf mit öffentlichen Beitragsformularen bei 320–1360 Pixeln sind erfolgreich.

@@ -117,7 +117,7 @@ func TestNameSelectionAndCSRF(t *testing.T) {
 	f := setup(t)
 	b := newBrowser(t, f.handler)
 	w := b.request("GET", "/", nil, false, "")
-	if w.Code != 303 || w.Header().Get("Location") != "/login" {
+	if w.Code != 200 || w.Header().Get("Location") != "" {
 		t.Fatalf("unauthenticated dashboard: %d", w.Code)
 	}
 	w = b.request("GET", "/login", nil, false, "")
@@ -155,7 +155,7 @@ func TestNameSelectionAndCSRF(t *testing.T) {
 	}
 	replay := newBrowser(t, f.handler)
 	replay.cookies[sessionCookie] = &http.Cookie{Name: sessionCookie, Value: oldToken}
-	if w = replay.request("GET", "/", nil, false, ""); w.Code != 303 {
+	if w = replay.request("GET", "/audit", nil, false, ""); w.Code != 303 {
 		t.Fatalf("old token replay: %d", w.Code)
 	}
 	if w = b.request("GET", "/logout", nil, false, ""); w.Code != 405 {
@@ -167,7 +167,7 @@ func TestNameSelectionAndCSRF(t *testing.T) {
 	if w = b.request("POST", "/logout", nil, true, ""); w.Code != 303 {
 		t.Fatalf("logout: %d", w.Code)
 	}
-	if w = b.request("GET", "/", nil, false, ""); w.Code != 303 {
+	if w = b.request("GET", "/audit", nil, false, ""); w.Code != 303 {
 		t.Fatalf("logout session still active: %d", w.Code)
 	}
 }
@@ -207,7 +207,7 @@ func TestHTTPRightsAndLiveUserState(t *testing.T) {
 	if err := f.store.UpdateUser(ctx, f.admin.ID, f.supervisor.ID, f.supervisor.Name, core.RoleEmployee, false); err != nil {
 		t.Fatal(err)
 	}
-	if w := b.request("GET", "/", nil, false, ""); w.Code != 303 {
+	if w := b.request("GET", "/audit", nil, false, ""); w.Code != 303 {
 		t.Fatalf("inactive user retains session: %d", w.Code)
 	}
 }
@@ -218,7 +218,7 @@ func TestEntriesIgnoreForgedSignatureAndProtectEdits(t *testing.T) {
 	b := newBrowser(t, f.handler)
 	b.login(f.employee)
 	body := strings.Repeat("ä", 20000)
-	w := b.request("POST", "/entries/new", url.Values{"title": {"<script>alert(1)</script>"}, "body": {body}, "author_id": {strconv.FormatInt(f.admin.ID, 10)}, "signature_name": {"Admin"}, "signature_at": {"1900-01-01"}, "status": {"erledigt"}}, true, "")
+	w := b.request("POST", "/entries/new", url.Values{"title": {"<script>alert(1)</script>"}, "body": {body}, "author_id": {strconv.FormatInt(f.employee.ID, 10)}, "role": {"admin"}, "signature_name": {"Admin"}, "signature_at": {"1900-01-01"}, "status": {"erledigt"}}, true, "")
 	if w.Code != 303 {
 		t.Fatalf("unicode entry: %d %s", w.Code, w.Body)
 	}
@@ -287,7 +287,7 @@ func TestExpiredSessionAndSecureCookie(t *testing.T) {
 	if !b.cookies[sessionCookie].Secure {
 		t.Fatal("Secure option ignored")
 	}
-	if w := b.request("GET", "/", nil, false, ""); w.Code != 303 {
+	if w := b.request("GET", "/audit", nil, false, ""); w.Code != 303 {
 		t.Fatalf("expired session accepted: %d", w.Code)
 	}
 }

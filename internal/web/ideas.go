@@ -53,12 +53,12 @@ func (a *app) ideaBoard(w http.ResponseWriter, r *http.Request, u core.User) {
 		}
 		filter.OnlyDivergent = true
 	}
-	list, err := a.store.Ideas(r.Context(), u.ID, filter)
+	list, err := a.store.PublicIdeas(r.Context(), filter)
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	categories, err := a.store.IdeaCategories(r.Context(), u.ID)
+	categories, err := a.store.PublicIdeaCategories(r.Context())
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -66,15 +66,25 @@ func (a *app) ideaBoard(w http.ResponseWriter, r *http.Request, u core.User) {
 	a.render(w, r, "ideas", page{Title: "Ideenboard", Current: &u, Ideas: list, Categories: categories, Filter: filter, FilterEmployee: q.Get("employee_priority"), FilterSupervisor: q.Get("supervisor_priority")})
 }
 func (a *app) newIdea(w http.ResponseWriter, r *http.Request, u core.User) {
-	categories, err := a.store.IdeaCategories(r.Context(), u.ID)
+	categories, err := a.store.PublicIdeaCategories(r.Context())
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	a.render(w, r, "form", page{Title: "Neue Idee", Current: &u, IdeaMode: true, Category: "Allgemein", Categories: categories})
+	authors, err := a.store.ActiveAuthors(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.render(w, r, "form", page{Title: "Neue Idee", Current: &u, IdeaMode: true, Category: "Allgemein", Categories: categories, Authors: authors})
 }
 func (a *app) createIdea(w http.ResponseWriter, r *http.Request, u core.User) {
-	idea, err := a.store.CreateIdea(r.Context(), u.ID, ideas.Input{Title: r.PostForm.Get("title"), Body: r.PostForm.Get("body"), Category: r.PostForm.Get("category")})
+	author, err := a.selectedAuthor(r)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	idea, err := a.store.CreateIdea(r.Context(), author.ID, ideas.Input{Title: r.PostForm.Get("title"), Body: r.PostForm.Get("body"), Category: r.PostForm.Get("category")})
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -87,12 +97,12 @@ func (a *app) idea(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.fail(w, err)
 		return
 	}
-	idea, err := a.store.Idea(r.Context(), u.ID, id)
+	idea, err := a.store.PublicIdea(r.Context(), id)
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	comments, err := a.store.Comments(r.Context(), u.ID, id)
+	comments, err := a.store.PublicComments(r.Context(), id)
 	if err != nil {
 		a.fail(w, err)
 		return

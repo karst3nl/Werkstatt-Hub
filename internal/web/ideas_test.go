@@ -19,14 +19,14 @@ func TestIdeasHTTPWorkflowAndRights(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	b := newBrowser(t, f.handler)
-	if w := b.request("GET", "/ideas", nil, false, ""); w.Code != http.StatusSeeOther {
+	if w := b.request("GET", "/ideas", nil, false, ""); w.Code != http.StatusOK {
 		t.Fatalf("board without session: %d", w.Code)
 	}
 	b.login(f.employee)
 	if w := b.request("GET", "/ideas/new", nil, false, ""); w.Code != http.StatusOK {
 		t.Fatalf("new idea form: %d %s", w.Code, w.Body)
 	}
-	form := url.Values{"title": {"<script>Idee</script>"}, "body": {"Eine bessere Werkzeugablage"}, "category": {"<img src=x>"}, "author_id": {strconv.FormatInt(f.admin.ID, 10)}, "signature_name": {"Admin"}, "status": {"umgesetzt"}}
+	form := url.Values{"title": {"<script>Idee</script>"}, "body": {"Eine bessere Werkzeugablage"}, "category": {"<img src=x>"}, "author_id": {strconv.FormatInt(f.employee.ID, 10)}, "role": {"admin"}, "signature_name": {"Admin"}, "status": {"umgesetzt"}}
 	if w := b.request("POST", "/ideas/new", form, false, ""); w.Code != http.StatusForbidden {
 		t.Fatalf("create without csrf: %d", w.Code)
 	}

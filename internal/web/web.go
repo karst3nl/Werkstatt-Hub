@@ -60,6 +60,7 @@ type page struct {
 	Current               *core.User
 	CSRF                  string
 	AdminLogin            bool
+	Authors               []core.User
 	Users                 []core.User
 	Entries               []core.Entry
 	Entry                 core.Entry
@@ -113,18 +114,18 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("GET /admin/login", a.login(true))
 	mux.HandleFunc("POST /admin/login", a.login(true))
 	mux.HandleFunc("POST /logout", a.auth(a.logout))
-	mux.HandleFunc("GET /{$}", a.auth(a.home))
-	mux.HandleFunc("GET /entries/new", a.auth(a.newEntry))
-	mux.HandleFunc("POST /entries/new", a.auth(a.createEntry))
-	mux.HandleFunc("GET /entries/{id}", a.auth(a.entry))
+	mux.HandleFunc("GET /{$}", a.browse(a.home))
+	mux.HandleFunc("GET /entries/new", a.browse(a.newEntry))
+	mux.HandleFunc("POST /entries/new", a.browse(a.createEntry))
+	mux.HandleFunc("GET /entries/{id}", a.browse(a.entry))
 	mux.HandleFunc("GET /entries/{id}/edit", a.auth(a.editEntry))
 	mux.HandleFunc("POST /entries/{id}/edit", a.auth(a.updateEntry))
 	mux.HandleFunc("POST /entries/{id}/comments", a.auth(a.comment))
 	mux.HandleFunc("POST /entries/{id}/priority", a.auth(a.setPriority))
-	mux.HandleFunc("GET /ideas", a.auth(a.ideaBoard))
-	mux.HandleFunc("GET /ideas/new", a.auth(a.newIdea))
-	mux.HandleFunc("POST /ideas/new", a.auth(a.createIdea))
-	mux.HandleFunc("GET /ideas/{id}", a.auth(a.idea))
+	mux.HandleFunc("GET /ideas", a.browse(a.ideaBoard))
+	mux.HandleFunc("GET /ideas/new", a.browse(a.newIdea))
+	mux.HandleFunc("POST /ideas/new", a.browse(a.createIdea))
+	mux.HandleFunc("GET /ideas/{id}", a.browse(a.idea))
 	mux.HandleFunc("GET /ideas/{id}/edit", a.auth(a.editIdea))
 	mux.HandleFunc("POST /ideas/{id}/edit", a.auth(a.updateIdea))
 	mux.HandleFunc("POST /ideas/{id}/comments", a.auth(a.ideaComment))
@@ -295,6 +296,10 @@ func (a *app) protect(next http.Handler) http.Handler {
 
 func (a *app) render(w http.ResponseWriter, r *http.Request, name string, p page) {
 	p.CSRF, _ = r.Context().Value(csrfKey{}).(string)
+	// Public views have no current identity until a user explicitly selects one.
+	if p.Current != nil && (!p.Current.Active || !p.Current.Role.Valid()) {
+		p.Current = nil
+	}
 	p.Scale = a.store.PriorityScale()
 	p.BasePath = "/entries"
 	if p.IdeaMode {
@@ -350,6 +355,46 @@ func (a *app) current(r *http.Request) (core.User, error) {
 		delete(a.sessions.items, c.Value)
 		a.sessions.mu.Unlock()
 		return core.User{}, core.ErrForbidden
+	}
+	return u, nil
+}
+
+// browse preserves an optional session while keeping public views accessible
+// after expiry or deactivation. It never issues a new identity.
+func (a *app) browse(next func(http.ResponseWriter, *http.Request, core.User)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u, err := a.current(r)
+		if errors.Is(err, core.ErrForbidden) || errors.Is(err, core.ErrNotFound) {
+			if _, cookieErr := r.Cookie(sessionCookie); cookieErr == nil {
+				a.cookie(w, sessionCookie, "", -1)
+			}
+			next(w, r, core.User{})
+			return
+		}
+		if err != nil {
+			a.fail(w, err)
+			return
+		}
+		next(w, r, u)
+	}
+}
+
+// selectedAuthor is an explicit choice for one new contribution. Signing and
+// active-user checks are repeated by the store inside the write transaction.
+func (a *app) selectedAuthor(r *http.Request) (core.User, error) {
+	id, err := strconv.ParseInt(r.PostForm.Get("author_id"), 10, 64)
+	if err != nil || id <= 0 {
+		return core.User{}, core.ErrValidation
+	}
+	u, err := a.store.User(r.Context(), id)
+	if errors.Is(err, core.ErrNotFound) {
+		return core.User{}, core.ErrValidation
+	}
+	if err != nil {
+		return core.User{}, err
+	}
+	if !u.Active || !u.Role.Valid() {
+		return core.User{}, core.ErrValidation
 	}
 	return u, nil
 }
@@ -437,16 +482,16 @@ func (a *app) logout(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.sessions.mu.Unlock()
 	}
 	a.cookie(w, sessionCookie, "", -1)
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
-	entries, err := a.store.Entries(r.Context(), u.ID)
+	entries, err := a.store.PublicEntries(r.Context())
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	latestIdeas, err := a.store.Ideas(r.Context(), u.ID, ideas.Filter{})
+	latestIdeas, err := a.store.PublicIdeas(r.Context(), ideas.Filter{})
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -454,15 +499,25 @@ func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
 	if len(latestIdeas) > 3 {
 		latestIdeas = latestIdeas[:3]
 	}
-	a.render(w, r, "home", page{Title: "Werkstatt-Hub", Current: &u, Entries: entries, Ideas: latestIdeas})
+	a.render(w, r, "home", page{Title: "Dashboard", Current: &u, Entries: entries, Ideas: latestIdeas})
 }
 
 func (a *app) newEntry(w http.ResponseWriter, r *http.Request, u core.User) {
-	a.render(w, r, "form", page{Title: "Neuer Eintrag", Current: &u})
+	authors, err := a.store.ActiveAuthors(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.render(w, r, "form", page{Title: "Neuer Eintrag", Current: &u, Authors: authors})
 }
 
 func (a *app) createEntry(w http.ResponseWriter, r *http.Request, u core.User) {
-	e, err := a.store.CreateEntry(r.Context(), u.ID, core.EntryInput{Title: r.PostForm.Get("title"), Body: r.PostForm.Get("body")})
+	author, err := a.selectedAuthor(r)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	e, err := a.store.CreateEntry(r.Context(), author.ID, core.EntryInput{Title: r.PostForm.Get("title"), Body: r.PostForm.Get("body")})
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -484,16 +539,21 @@ func (a *app) entry(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.fail(w, err)
 		return
 	}
-	e, err := a.store.Entry(r.Context(), u.ID, id)
+	e, err := a.store.PublicEntry(r.Context(), id)
+	if errors.Is(err, core.ErrNotFound) {
+		if _, ideaErr := a.store.PublicIdea(r.Context(), id); ideaErr == nil {
+			http.Redirect(w, r, fmt.Sprintf("/ideas/%d", id), http.StatusSeeOther)
+			return
+		} else if !errors.Is(ideaErr, core.ErrNotFound) {
+			a.fail(w, ideaErr)
+			return
+		}
+	}
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	if e.Module == "idee" {
-		http.Redirect(w, r, fmt.Sprintf("/ideas/%d", id), http.StatusSeeOther)
-		return
-	}
-	comments, err := a.store.Comments(r.Context(), u.ID, id)
+	comments, err := a.store.PublicComments(r.Context(), id)
 	if err != nil {
 		a.fail(w, err)
 		return
