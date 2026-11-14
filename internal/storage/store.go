@@ -18,6 +18,7 @@ import (
 
 	_ "modernc.org/sqlite"
 	"werkstatt-hub/internal/core"
+	"werkstatt-hub/internal/tasks"
 )
 
 //go:embed migrations/*.sql
@@ -26,11 +27,16 @@ var migrationFiles embed.FS
 type Store struct {
 	db            *sql.DB
 	priorityScale core.PriorityScale
+	taskSettings  tasks.Settings
 }
 
-type Options struct{ PriorityScale core.PriorityScale }
+type Options struct {
+	PriorityScale core.PriorityScale
+	TaskSettings  tasks.Settings
+}
 
 func (s *Store) PriorityScale() core.PriorityScale { return s.priorityScale }
+func (s *Store) TaskSettings() tasks.Settings      { return s.taskSettings }
 
 func Open(path string) (*Store, error) { return OpenWithOptions(path, Options{}) }
 
@@ -40,6 +46,12 @@ func OpenWithOptions(path string, opts Options) (*Store, error) {
 	}
 	if !opts.PriorityScale.Valid() {
 		return nil, fmt.Errorf("Prioritätsskala: %w", core.ErrValidation)
+	}
+	if opts.TaskSettings == (tasks.Settings{}) {
+		opts.TaskSettings = tasks.DefaultSettings()
+	}
+	if !opts.TaskSettings.Valid() {
+		return nil, fmt.Errorf("Aufgabenerinnerungen: %w", core.ErrValidation)
 	}
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("database path: %w", core.ErrValidation)
@@ -71,7 +83,7 @@ func OpenWithOptions(path string, opts Options) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
-	s := &Store{db: db, priorityScale: opts.PriorityScale}
+	s := &Store{db: db, priorityScale: opts.PriorityScale, taskSettings: opts.TaskSettings}
 	if err = db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("open database: %w", err)

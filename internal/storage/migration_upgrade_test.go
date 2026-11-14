@@ -122,7 +122,7 @@ func TestUpgradeFromMilestoneOnePreservesDataAndGuards(t *testing.T) {
 	}
 	verify()
 	var migrationCount int
-	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&migrationCount); err != nil || migrationCount != 2 {
+	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&migrationCount); err != nil || migrationCount != 3 {
 		t.Fatalf("upgrade history count=%d, %v", migrationCount, err)
 	}
 	if err := store.Close(); err != nil {
