@@ -37,6 +37,7 @@ Nutzer: Mitarbeiter, Azubis und Vorgesetzte. Sprache der Oberfläche: **Deutsch*
 - **Aufgabenzuweisung:** Neue Aufgaben benötigen eine aktive Vorgesetzten- oder Admin-Sitzung. Der ausdrücklich gewählte Ersteller muss ebenfalls ein aktiver Vorgesetzter oder Admin sein. Er signiert den Eintrag; Audit-Akteur bleibt der tatsächliche Sitzungsnutzer. Die Erstellerwahl wechselt keine Sitzung.
 - **Werkzeugbestand:** Neue Werkzeuge benötigen wie Aufgaben eine aktive Vorgesetzten- oder Admin-Sitzung und einen ausdrücklich gewählten aktiven Vorgesetzten/Admin als Ersteller. Der gewählte Ersteller signiert; Audit-Akteur bleibt der handelnde Sitzungsnutzer. Bestand, offizieller Zustand und Beschaffungsstatus werden nur von Vorgesetzten/Admins gepflegt.
 - **Werkstattwartung:** Objekte und Historien sind ohne Sitzung lesbar. Durchführungen werden mit ausdrücklich gewähltem aktivem Ersteller erfasst; dessen Signatur und Audit-Akteur werden serverseitig festgelegt, ohne Sitzungswechsel. Abzeichnen benötigt eine Vorgesetzten-/Admin-Sitzung; Objektverwaltung und globale Vorwarnzeit benötigen eine vollständig angemeldete Admin-Sitzung.
+- **Verbrauchsmaterialien:** Übersicht, Bestandsprüfungen und Warnungshistorie sind ohne Sitzung lesbar. Prüfungen benötigen bei jeder Neuanlage einen ausdrücklich gewählten aktiven Ersteller; die Auswahl erzeugt oder wechselt keine Sitzung. Materialstammdaten und Mindestbestand verwalten nur vollständig angemeldete Admins. Bestellwarnungen werden ausschließlich aus einer Vorgesetzten-/Admin-Sitzung signiert abgehakt.
 - **Admin-Zugang mit Passwort:** Beim ersten Serverstart wird das Konto „Admin“ automatisch angelegt und ein zufälliges Startpasswort einmalig in der lokalen Serverkonsole ausgegeben. Beim Upgrade erhalten bestehende aktive Admins ohne Passwort ebenfalls einmalig ein Startpasswort. Vor geschützten Aktionen muss ein neues Passwort festgelegt werden; bereits gesetzte Passwörter werden bei Neustarts nicht zurückgesetzt. Es gibt kein universelles Passwort im Repository.
 - **Optionale Namenssitzung:** Mitarbeiter und Vorgesetzte wählen zum Kommentieren, Bewerten und Bearbeiten weiterhin den eigenen Namen aus einer Liste, ohne Passwort. Admins benötigen eine Passwortanmeldung; eine Namensauswahl oder Erstellerwahl gewährt keine Admin-Rechte. Geschützte Aktionen behalten ihre Rollenprüfungen.
 - Den Auth-Teil so kapseln, dass später PIN oder Passwort ergänzt werden kann, ohne den Rest umzubauen.
@@ -89,6 +90,10 @@ Eintrag mit Titel, Text, Kategorie, Status, signiert. Sichtbarkeit und Rechte al
 - **Bestandsprüfung durch einen Azubi:** Der Azubi trägt den aktuellen Bestand ein (signiert, mit Zeitpunkt).
 - Fällt der Bestand auf oder unter den Mindestbestand (Beispiel: nur noch eine Kiste Scheibenklar), erscheint auf der **Startseite eine Warnung** ("Scheibenklar sollte bestellt werden").
 - Die Warnung muss von einem **Vorgesetzten abgehakt** werden (mit Signatur, im Audit-Log). Erst dann verschwindet sie. Sinkt der Bestand später erneut unter das Minimum, entsteht eine neue Warnung.
+- Stammdaten sind Admins vorbehalten; die Einheit bleibt nach der Anlage unveränderlich. Mengen von 0 bis 999999999,999 werden exakt in Tausendsteln gespeichert, Komma oder Punkt ist als Eingabe zulässig. Weitere Bestandsänderungen erfolgen durch neue, unveränderliche Prüfungen; Korrekturen überschreiben keine alten Messwerte.
+- Bestandsprüfungen sind gemeinsame Beiträge mit Status „Erfasst“, beiden Prioritäten und Kommentaren. Der Erfassungszeitpunkt kommt vom Server; die Materialversion schützt vor veralteten Formularen. Signaturen und Historie bleiben auch bei Nutzeränderungen erhalten.
+- Höchstens eine offene Warnung je Material. Ein niedriger Anfangsbestand warnt bereits; gleichbleibende niedrige Prüfungen erzeugen keine Duplikate. Eine Auffüllung beendet keine offene Warnung automatisch. Nach dem Abhaken beginnt ein erneuter Rückgang auf oder unter das Minimum einen neuen Zyklus, derselbe oder ein gestiegener niedriger Bestand nicht.
+- Deaktivierung erhält Historie und Warnungen, sperrt neue Prüfungen und entfernt das Material aus Dashboard-Warnungen; Reaktivierung zeigt erhaltene offene Warnungen wieder an. Abhaken ändert den Bestand nicht.
 - Optional vorbereiten: Prüfintervalle (z. B. wöchentliche Bestandsprüfung als wiederkehrende Azubi-Aufgabe).
 
 ### 7.6 Werkstattwartung (Zusatzmeilenstein)
@@ -128,7 +133,7 @@ Eintrag mit Titel, Text, Kategorie, Status, signiert. Sichtbarkeit und Rechte al
 7. Admin-Bereich inkl. Foto-Grundlagen
 8. Deployment auf dem Pi (systemd), Backup, Feinschliff
 
-Zusatzmeilenstein **Werkstattwartung** gemäß `ERWEITERUNG_Werkstattwartung.md` auf ausdrücklichen Nutzerwunsch nach Meilenstein 4 vorgezogen. Verbrauchsmaterialien bleiben ein eigenständiger, noch offener Meilenstein 5.
+Zusatzmeilenstein **Werkstattwartung** gemäß `ERWEITERUNG_Werkstattwartung.md` auf ausdrücklichen Nutzerwunsch nach Meilenstein 4 vorgezogen. Verbrauchsmaterialien sind anschließend als eigenständiger Meilenstein 5 umgesetzt.
 
 ## 12. Erweiterbarkeit
 Jedes Modul ist ein eigenes Paket mit eigenem Datenmodell, nutzt aber gemeinsam Benutzer-, Prio-, Audit- und Kommentarlogik. Neue Bereiche sollen ohne Umbau des Kerns ergänzbar sein.
@@ -138,7 +143,7 @@ Passwörter oder PIN für Mitarbeiter und Vorgesetzte (Admin-Passwörter sind um
 
 ## 14. Umsetzungsstand
 - **Meilenstein 1 umgesetzt:** Go/SQLite-Projektgerüst, lokale Konfiguration, deutsche Namensauswahl mit separatem Admin-Zugang, Rollen, Basiseinträge und Kommentare mit unveränderlicher Signatur, atomarer Audit-Verlauf und versionierte Migrationen.
-- Die grundlegende Benutzerverwaltung dient bereits dem Einrichten und Prüfen der Rollen. Stammdaten und Foto-Grundlagen bleiben Meilenstein 7.
+- Die grundlegende Benutzerverwaltung dient bereits dem Einrichten und Prüfen der Rollen. Materialstammdaten sind mit Meilenstein 5 umgesetzt; weitere Stammdatenverwaltung (Kategorien/Prioskala) und Foto-Grundlagen bleiben Meilenstein 7.
 - Rechtematrix, Betriebsannahmen, Startanleitung und Grenzen sind in `README.md` dokumentiert. Keine Beispieldaten werden mitgeliefert.
 - Rechte-, Audit-, Migrations- und HTTP-Tests vorhanden. Go-Race-Tests, `go vet`, Browserablauf auf Desktop/Mobil und ARM64-Build geprüft; noch kein Lauf auf echter Pi-Hardware.
 - **Meilenstein 2 umgesetzt:** eigenes Ideenmodell mit Kategorie und Status bis „umgesetzt“, gemeinsames Prioritätssystem mit konfigurierbarer Skala, Filtern/Sortieren und sichtbarer starker Abweichung. Prioritätsänderungen sind versioniert und atomar auditiert.
@@ -163,4 +168,7 @@ Passwörter oder PIN für Mitarbeiter und Vorgesetzte (Admin-Passwörter sind um
 - **Zusatzmeilenstein Werkstattwartung umgesetzt:** eigenes Datenmodell, zentral berechnete Kalenderfälligkeit, administrative Objekt-/Intervall-/Vorwarnverwaltung, öffentliche Übersicht und unveränderliche Durchführungshistorie mit Abzeichnung sowie Dashboard-Wartungsblock.
 - Migration 006 ergänzt die Wartungstabellen und globalen Standardwerte ohne Änderung bestehender Tabellen/Daten. Alle Wartungsschreibvorgänge werden atomar auditiert; Signaturen, Durchführungshistorie und Abzeichnungen bleiben erhalten. Die Annahmen und Prüfschwerpunkte sind in `README.md` dokumentiert.
 - Version 0.5.0 geprüft mit vollständigen Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und einem Chromium-Ablauf bei 320–1440 Pixeln. Kalendergrenzen, Intervalländerung, rückwirkende Erfassung, Rechte, parallele Abzeichnung, Audit-Rollback aller Wartungsschreibwege, Migration 006 mit Bestandsdaten und mobile Darstellung sind geprüft.
-- **Nächster fachlicher Schritt: Meilenstein 5**, Verbrauchsmaterialien mit Bestandswarnungen und Abhaken durch Vorgesetzte.
+- **Meilenstein 5 umgesetzt:** eigenes Materialmodell mit genauen Mengen, administrative Stammdatenverwaltung, signierte unveränderliche Bestandsprüfungen mit gemeinsamen Kommentaren/Prioritäten, vollständige Warnungszyklen und signiertes Abhaken durch Vorgesetzte/Admins. Dashboard-Warnungen stehen oberhalb des Wartungsblocks und der bisherigen drei Spalten.
+- Migration 007 erweitert die gemeinsamen Eintragstabellen und ergänzt Materialien, Prüfwerte und Warnungen unter Erhalt bisheriger Daten, Signaturen, Abnahmen und Audit-Historie. Annahmen und Prüfschwerpunkte sind in `README.md` dokumentiert.
+- Version 0.6.0 geprüft mit vollständigen Race-Tests, `go vet`, Builds ohne CGO für AMD64/ARM64 und einem Chromium-Ablauf bei 320–1440 Pixeln. Exakte Mengen, Warnungszyklen, konkurrierendes Abhaken, Versionskonflikte, Audit-Rollback, historische Signaturen, Schwellenänderung bei deaktivierten Materialien und Migration 007 mit Bestandsdaten sind geprüft.
+- **Nächster fachlicher Schritt: Meilenstein 6**, Kummerkasten mit den vorgesehenen Sichtbarkeits- und Rollenregeln. Erweiterte Administration und Foto-Grundlagen bleiben Meilenstein 7.

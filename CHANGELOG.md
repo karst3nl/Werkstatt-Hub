@@ -2,6 +2,27 @@
 
 Alle relevanten Änderungen am Werkstatt-Hub werden hier dokumentiert.
 
+## 0.6.0 – 2026-11-16
+
+### Hinzugefügt
+
+- Verbrauchsmaterialien mit Name, Einheit, Lagerort, aktuellem Bestand und Mindestbestand sowie administrativer Anlage, Bearbeitung und Deaktivierung/Reaktivierung.
+- Öffentliche Übersicht mit Suche und Filtern für niedrigen Bestand sowie aktive/deaktivierte Materialien; Detailansichten mit Prüf- und Warnungshistorie.
+- Signierte Bestandsprüfungen mit ausdrücklicher Erstellerwahl, genauer Speicherung in Tausendsteln und Versionsprüfung gegen zwischenzeitliche Änderungen.
+- Unveränderliche Prüfwerte mit eigener Beitragsansicht, beiden Prioritäten und Kommentaren nach den gemeinsamen Rechte- und Audit-Regeln.
+- Bestellwarnungen auf oder unter dem Mindestbestand, signiertes Abhaken ausschließlich durch Vorgesetzte/Admins und erneute Warnung bei späterem Bestandsrückgang.
+- Verbrauchsmaterial-Warnblock oberhalb der Wartung und bisherigen Dashboard-Spalten; offene Warnungen bleiben bis zum ausdrücklichen Abhaken sichtbar.
+- Migration 007 für Material-, Prüf- und Warnungsdaten sowie Erweiterung der gemeinsamen Eintragstabellen unter Erhalt bisheriger Daten und Schutzregeln.
+
+### Annahmen
+
+- Stammdaten sind Admins vorbehalten. Eine Materialeinheit bleibt nach der Anlage unveränderlich; weitere Bestandsänderungen erfolgen ausschließlich durch neue Prüfungen.
+- Alle aktiven Rollen dürfen den aktuellen Bestand mit ausdrücklich gewähltem Ersteller ohne vorherige Sitzung erfassen. Die Auswahl erzeugt keine Sitzung oder Verwaltungsrechte.
+- Mengen sind nichtnegativ, auf drei Nachkommastellen begrenzt und ohne Fließkommarundung gespeichert. Komma und Punkt werden als Dezimaltrenner akzeptiert.
+- Es gibt höchstens eine offene Warnung pro Material. Eine Auffüllung allein hakt sie nicht ab. Nach dem Abhaken erzeugt derselbe oder ein gestiegener niedriger Bestand keine neue Warnung; ein erneuter Rückgang auf oder unter das Minimum beginnt einen neuen Zyklus.
+- Deaktivierte Materialien behalten Historie und offene Warnungen, erhalten keine neuen Prüfungen und erzeugen keine Dashboard-Warnung. Eine Reaktivierung zeigt erhaltene offene Warnungen wieder an.
+- Prüfzeitpunkte kommen vom Server. Eine Korrektur erfolgt als neue Prüfung; wiederkehrende Azubi-Aufgaben und Prüfintervalle bleiben späteren Erweiterungen vorbehalten.
+
 ## 0.5.0 – 2026-11-14
 
 ### Hinzugefügt
