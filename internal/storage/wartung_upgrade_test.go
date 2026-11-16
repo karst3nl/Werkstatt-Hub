@@ -139,7 +139,7 @@ func TestWartungUpgradePreservesAllModulesAndAdminCredentials(t *testing.T) {
 			t.Fatal("migration 006 or restart changed historical module data, signatures, credentials, user flags or migration history")
 		}
 		var count int
-		if err := store.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 6 {
+		if err := store.db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 7 {
 			t.Fatalf("migration count=%d, err=%v", count, err)
 		}
 		var storedHash string

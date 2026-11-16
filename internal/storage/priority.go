@@ -98,6 +98,16 @@ func (s *Store) SetPriority(ctx context.Context, actorID, entryID int64, in core
 			auditBefore, auditAfter = previous, updated
 			action, entity = "purchase.priority", "purchase"
 		}
+		if before.Module == "materialpruefung" {
+			previous, err := materialCheckFrom(ctx, tx, entryID)
+			if err != nil {
+				return err
+			}
+			updated := previous
+			updated.Entry = after
+			auditBefore, auditAfter = previous, updated
+			action, entity = "material_check.priority", "material_check"
+		}
 		r, err := tx.ExecContext(ctx, "UPDATE entries SET "+column+"=?,updated_at=?,version=? WHERE id=? AND version=?", value, timestamp(after.UpdatedAt), after.Version, entryID, in.Version)
 		if err != nil {
 			return err
