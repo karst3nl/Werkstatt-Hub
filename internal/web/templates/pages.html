@@ -1,7 +1,7 @@
 {{define "header"}}<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Title}} · Werkstatt-Hub</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/priority.css"><link rel="stylesheet" href="/assets/wartung.css"></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{.Title}} · Werkstatt-Hub</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/priority.css"><link rel="stylesheet" href="/assets/wartung.css"><link rel="stylesheet" href="/assets/materials.css"></head>
 <body><a class="skip" href="#content">Zum Inhalt</a><header class="bar"><a class="brand" href="/">WERKSTATT<span>HUB</span></a>
-<nav aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/ideas">Ideenboard</a><a href="/tasks">Aufgaben</a><a href="/tools">Werkzeuge</a><a href="/wartung">Werkstattwartung</a>{{if and .Current (not .PasswordRequired)}}{{if manager .Current}}<a href="/audit">Protokoll</a>{{end}}{{if admin .Current}}<a href="/admin/users">Benutzer</a>{{end}}{{end}}</nav><div class="account">{{if .Current}}<span>{{.Current.Name}} <small>{{role .Current.Role}}</small></span>{{if and (admin .Current) (not .PasswordRequired)}}<a href="/admin/password">Passwort ändern</a>{{end}}<form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="quiet" type="submit">Abmelden</button></form>{{else}}<a href="/login">Namen wählen</a><a href="/admin/login">Admin</a>{{end}}</div></header>
+<nav aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/ideas">Ideenboard</a><a href="/tasks">Aufgaben</a><a href="/tools">Werkzeuge</a><a href="/wartung">Werkstattwartung</a><a href="/materials">Verbrauchsmaterialien</a>{{if and .Current (not .PasswordRequired)}}{{if manager .Current}}<a href="/audit">Protokoll</a>{{end}}{{if admin .Current}}<a href="/admin/users">Benutzer</a>{{end}}{{end}}</nav><div class="account">{{if .Current}}<span>{{.Current.Name}} <small>{{role .Current.Role}}</small></span>{{if and (admin .Current) (not .PasswordRequired)}}<a href="/admin/password">Passwort ändern</a>{{end}}<form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="quiet" type="submit">Abmelden</button></form>{{else}}<a href="/login">Namen wählen</a><a href="/admin/login">Admin</a>{{end}}</div></header>
 <main id="content"{{if .Dashboard}} class="dashboard"{{end}}>{{end}}
 
 {{define "footer"}}</main><footer class="footer">Werkstatt-Hub · Lokal in der Werkstatt · Signaturzeiten in UTC · Fälligkeiten in {{.WorkshopTimezone}}</footer></body></html>{{end}}
@@ -24,6 +24,7 @@
 
 {{define "home"}}{{template "header" .}}
 <div class="heading"><div><p class="eyebrow">Gemeinsam den Überblick behalten</p><h1>Werkstatt-Dashboard</h1><p class="muted">Meldungen teilen und Ideen für den Arbeitsablauf sammeln.</p></div></div>
+{{template "dashboard-materials" .}}
 {{template "dashboard-wartung" .}}
 <div class="dashboard-columns">
 <div class="dashboard-column dashboard-column-tasks">{{template "dashboard-tasks" .}}</div>

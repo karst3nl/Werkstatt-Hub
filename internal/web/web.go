@@ -21,6 +21,7 @@ import (
 
 	"werkstatt-hub/internal/core"
 	"werkstatt-hub/internal/ideas"
+	"werkstatt-hub/internal/materials"
 	"werkstatt-hub/internal/storage"
 	"werkstatt-hub/internal/tasks"
 	"werkstatt-hub/internal/tooling"
@@ -62,6 +63,17 @@ type app struct {
 }
 
 type page struct {
+	Material                materialCard
+	Materials               []materialCard
+	MaterialFilter          materials.Filter
+	MaterialChecks          []materials.Check
+	MaterialCheck           materials.Check
+	MaterialAlerts          []materials.Alert
+	MaterialHistoryFilter   materialHistoryFilter
+	MaterialCheckMode       bool
+	DashboardMaterialAlerts []materials.Alert
+	MaterialOpenCount       int
+
 	Wartung              wartungCard
 	WartungObjects       []wartungCard
 	WartungRecords       []wartung.Record
@@ -153,6 +165,7 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 		"wrenchRating":     priorityRenderer(store.PriorityScale()),
 		"wartungUnit":      wartungUnitLabel,
 		"wartungFinding":   wartungFindingLabel,
+		"quantity":         materials.FormatQuantity,
 	}).ParseFS(files, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("templates: %w", err)
@@ -211,6 +224,17 @@ func New(store *storage.Store, options Options) (http.Handler, error) {
 	mux.HandleFunc("POST /purchases/{id}/comments", a.auth(a.toolingComment))
 	mux.HandleFunc("POST /purchases/{id}/priority", a.auth(a.setPriority))
 	mux.HandleFunc("GET /wartung", a.browse(a.wartungBoard))
+	mux.HandleFunc("GET /materials", a.browse(a.materialBoard))
+	mux.HandleFunc("GET /materials/{id}", a.browse(a.material))
+	mux.HandleFunc("POST /materials/{id}/checks", a.browse(a.recordMaterialCheck))
+	mux.HandleFunc("POST /materials/{id}/alerts/{alertID}/ack", a.auth(a.acknowledgeMaterialAlert))
+	mux.HandleFunc("GET /material-checks/{id}", a.browse(a.materialCheck))
+	mux.HandleFunc("POST /material-checks/{id}/comments", a.auth(a.materialCheckComment))
+	mux.HandleFunc("POST /material-checks/{id}/priority", a.auth(a.setPriority))
+	mux.HandleFunc("GET /admin/materials/new", a.auth(a.newMaterial))
+	mux.HandleFunc("POST /admin/materials/new", a.auth(a.createMaterial))
+	mux.HandleFunc("GET /admin/materials/{id}/edit", a.auth(a.editMaterial))
+	mux.HandleFunc("POST /admin/materials/{id}/edit", a.auth(a.updateMaterial))
 	mux.HandleFunc("GET /wartung/{id}", a.browse(a.wartungObject))
 	mux.HandleFunc("POST /wartung/{id}/record", a.browse(a.recordWartung))
 	mux.HandleFunc("POST /wartung/{id}/records/{recordID}/approve", a.auth(a.approveWartung))
@@ -243,6 +267,8 @@ func roleLabel(role core.Role) string {
 
 func statusLabel(status string) string {
 	switch status {
+	case "erfasst":
+		return "Erfasst"
 	case "offen":
 		return "Offen"
 	case "in_arbeit":
@@ -276,6 +302,18 @@ func statusLabel(status string) string {
 
 func auditAction(action string) string {
 	switch action {
+	case "material.create":
+		return "Verbrauchsmaterial angelegt"
+	case "material.update":
+		return "Verbrauchsmaterial geändert"
+	case "material_check.create":
+		return "Materialbestand geprüft"
+	case "material_check.priority":
+		return "Prüfungspriorität geändert"
+	case "material.alert_open":
+		return "Bestellwarnung ausgelöst"
+	case "material.alert_acknowledge":
+		return "Bestellwarnung abgehakt"
 	case "wartung.object_create":
 		return "Wartungsobjekt angelegt"
 	case "wartung.object_update":
@@ -347,6 +385,12 @@ func auditAction(action string) string {
 
 func auditEntity(entity string) string {
 	switch entity {
+	case "material":
+		return "Verbrauchsmaterial"
+	case "material_check":
+		return "Bestandsprüfung"
+	case "material_alert":
+		return "Bestellwarnung"
 	case "wartung_object":
 		return "Wartungsobjekt"
 	case "wartung_record":
@@ -478,6 +522,9 @@ func (a *app) render(w http.ResponseWriter, r *http.Request, name string, p page
 	if p.PurchaseMode {
 		p.BasePath = "/purchases"
 	}
+	if p.MaterialCheckMode {
+		p.BasePath = "/material-checks"
+	}
 	if p.Current != nil {
 		p.CanEmployeePriority = core.CanSetEmployeePriority(*p.Current, p.Entry)
 		p.CanSupervisorPriority = core.CanSetSupervisorPriority(*p.Current)
@@ -576,7 +623,12 @@ func (a *app) home(w http.ResponseWriter, r *http.Request, u core.User) {
 		a.fail(w, err)
 		return
 	}
-	a.render(w, r, "home", page{Title: "Dashboard", Dashboard: true, Current: &u, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews, DashboardTools: attention, ToolAttentionCount: attentionCount, DashboardPurchases: purchasePreview, WartungOverdue: maintenanceOverdue, WartungOverdueCount: maintenance.OverdueCount, WartungSoonCount: maintenance.SoonCount})
+	materialWarnings, err := a.store.MaterialDashboard(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.render(w, r, "home", page{Title: "Dashboard", Dashboard: true, Current: &u, Ideas: latestIdeas, MyTasks: myTasks, Reminders: reminders, DashboardTasks: previews, DashboardTools: attention, ToolAttentionCount: attentionCount, DashboardPurchases: purchasePreview, WartungOverdue: maintenanceOverdue, WartungOverdueCount: maintenance.OverdueCount, WartungSoonCount: maintenance.SoonCount, DashboardMaterialAlerts: materialWarnings.Alerts, MaterialOpenCount: materialWarnings.OpenCount})
 }
 
 func entryID(r *http.Request) (int64, error) {

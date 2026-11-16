@@ -198,6 +198,9 @@ func (a *app) setPriority(w http.ResponseWriter, r *http.Request, u core.User) {
 	if strings.HasPrefix(r.URL.Path, "/purchases/") {
 		base, module = "/purchases", "anschaffung"
 	}
+	if strings.HasPrefix(r.URL.Path, "/material-checks/") {
+		base, module = "/material-checks", "materialpruefung"
+	}
 	// A mutation must use the entry's module-specific route.
 	if entry.Module != module {
 		a.fail(w, core.ErrValidation)
